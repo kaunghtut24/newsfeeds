@@ -219,49 +219,186 @@ class MultiLLMSummarizer:
     def summarize_news_items(self, news_items: List[Dict], **kwargs) -> List[Dict]:
         """
         Summarize multiple news items (synchronous wrapper for async method)
-        
+
         Args:
             news_items: List of news items to summarize
             **kwargs: Additional parameters
-            
+
         Returns:
             List of news items with summaries added
         """
-        return asyncio.run(self.summarize_news_items_async(news_items, **kwargs))
+        try:
+            # Try to get the current event loop
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                # If we're already in an event loop, we need to run in a thread
+                import concurrent.futures
+                with concurrent.futures.ThreadPoolExecutor() as executor:
+                    future = executor.submit(self._run_async_in_new_loop, news_items, **kwargs)
+                    return future.result()
+            else:
+                # No running loop, safe to use asyncio.run
+                return asyncio.run(self.summarize_news_items_async(news_items, **kwargs))
+        except RuntimeError:
+            # No event loop exists, create one
+            return asyncio.run(self.summarize_news_items_async(news_items, **kwargs))
+
+    def _run_async_in_new_loop(self, news_items: List[Dict], **kwargs) -> List[Dict]:
+        """Helper method to run async code in a new event loop"""
+        new_loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(new_loop)
+        try:
+            return new_loop.run_until_complete(self.summarize_news_items_async(news_items, **kwargs))
+        finally:
+            new_loop.close()
     
     async def summarize_news_items_async(self, news_items: List[Dict], **kwargs) -> List[Dict]:
         """
-        Summarize multiple news items asynchronously
-        
+        Summarize multiple news items asynchronously with intelligent batching
+
         Args:
             news_items: List of news items to summarize
-            **kwargs: Additional parameters
-            
+            **kwargs: Additional parameters including:
+                - max_text_length: Maximum text length per article (default: 2000)
+                - batch_delay: Delay between articles in seconds (default: 0.5)
+                - max_retries: Maximum retries per article (default: 2)
+
         Returns:
             List of news items with summaries added
         """
         summarized_items = []
-        
+        max_text_length = kwargs.get('max_text_length', 2000)
+        batch_delay = kwargs.get('batch_delay', 0.5)
+        max_retries = kwargs.get('max_retries', 2)
+
         for i, item in enumerate(news_items):
             print(f"Summarizing {i+1}/{len(news_items)}: {item['title'][:50]}...")
-            
+
             # Get text to summarize (prioritize full_text, fallback to title)
             text_to_summarize = item.get('full_text') or f"Title: {item['title']}\nSource: {item['source']}"
-            
-            # Summarize the text
-            response = await self.summarize_text(text_to_summarize, **kwargs)
-            
+
+            # Truncate text if too long to prevent token overflow
+            if len(text_to_summarize) > max_text_length:
+                text_to_summarize = text_to_summarize[:max_text_length] + "..."
+                print(f"  📝 Truncated article to {max_text_length} characters")
+
+            # Retry logic for failed summarizations
+            retry_count = 0
+            response = None
+
+            while retry_count <= max_retries:
+                try:
+                    # Summarize the text
+                    response = await self.summarize_text(text_to_summarize, **kwargs)
+
+                    if response.success:
+                        break
+                    else:
+                        print(f"  ⚠️ Attempt {retry_count + 1} failed: {response.error_message}")
+
+                except Exception as e:
+                    print(f"  ⚠️ Attempt {retry_count + 1} error: {str(e)}")
+
+                retry_count += 1
+                if retry_count <= max_retries:
+                    await asyncio.sleep(1)  # Wait before retry
+
             # Add summary to item
-            item['summary'] = response.content if response.success else "Summary unavailable"
-            item['llm_provider'] = response.provider
-            item['llm_model'] = response.model
-            item['llm_cost'] = response.cost
-            item['llm_tokens'] = response.tokens_used
-            item['llm_response_time'] = response.response_time
-            
+            if response and response.success:
+                item['summary'] = response.content
+                item['llm_provider'] = response.provider
+                item['llm_model'] = response.model
+                item['llm_cost'] = response.cost
+                item['llm_tokens'] = response.tokens_used
+                item['llm_response_time'] = response.response_time
+            else:
+                # Create a fallback summary from the article text
+                item['summary'] = self._create_fallback_summary(item)
+                item['llm_provider'] = 'fallback'
+                item['llm_model'] = 'none'
+                item['llm_cost'] = 0.0
+                item['llm_tokens'] = 0
+                item['llm_response_time'] = 0.0
+                print(f"  ⚠️ Using fallback summary for: {item['title'][:50]}...")
+
             summarized_items.append(item)
-        
+
+            # Add delay between articles to prevent overwhelming the model
+            if i < len(news_items) - 1:  # Don't delay after the last item
+                await asyncio.sleep(batch_delay)
+
         return summarized_items
+
+    def _create_fallback_summary(self, item):
+        """Create a basic summary when LLM providers fail"""
+        try:
+            # Get the text content
+            text = item.get('full_text', '') or item.get('description', '') or item.get('title', '')
+
+            if not text:
+                return f"Article from {item.get('source', 'Unknown source')} - Summary not available"
+
+            # Clean the text
+            import re
+            # Remove extra whitespace and newlines
+            text = re.sub(r'\s+', ' ', text).strip()
+
+            # Remove common website elements
+            text = re.sub(r'(Get businessline apps on|Connect with us|TO ENJOY ADDITIONAL BENEFITS|Copyright©.*|Terms & conditions.*)', '', text, flags=re.IGNORECASE)
+
+            # Remove financial data patterns (numbers with +/- signs, decimals, currency symbols)
+            text = re.sub(r'[-+]?\d+\.\d+\s*[-+]?\s*\d*\.?\d*\s*[-+]?\s*\d*\.?\d*', '', text)
+            text = re.sub(r'[-+]\s*\d+\.\d+', '', text)
+            text = re.sub(r'\b\d+\.\d+\s*[-+]\s*\d+\.\d+\b', '', text)
+            text = re.sub(r'[-+]?\s*\d+\.\d+\s*[-+]?\s*\d+\.\d+\s*[-+]?\s*\d+\.\d+', '', text)
+
+            # Remove standalone numbers and financial symbols
+            text = re.sub(r'\b[-+]?\d+\.\d+\b', '', text)
+            text = re.sub(r'[₹$€£¥]\s*\d+', '', text)
+            text = re.sub(r'\b\d+\s*cr\b|\b\d+\s*crore\b|\b\d+\s*mn\b|\b\d+\s*million\b', '', text)
+
+            # Remove percentage and stock-like patterns
+            text = re.sub(r'\d+\.\d+%|\d+%', '', text)
+            text = re.sub(r'\(\d+\.\d+%\)|\(\d+%\)', '', text)
+
+            # Remove multiple spaces created by removals
+            text = re.sub(r'\s+', ' ', text).strip()
+
+            # Take first few sentences (up to 200 characters)
+            sentences = text.split('. ')
+            summary = ""
+            for sentence in sentences:
+                # Skip sentences that are mostly numbers or very short
+                if len(sentence.strip()) < 10 or re.match(r'^[\d\s\-+.%₹$€£¥]+$', sentence.strip()):
+                    continue
+
+                if len(summary + sentence) < 200:
+                    summary += sentence + ". "
+                else:
+                    break
+
+            # If summary is too short, try to get meaningful content
+            if len(summary.strip()) < 50:
+                # Look for sentences with actual words (not just numbers)
+                meaningful_sentences = []
+                for sentence in sentences:
+                    # Check if sentence has at least 5 words and isn't mostly numbers
+                    words = re.findall(r'\b[a-zA-Z]+\b', sentence)
+                    if len(words) >= 5:
+                        meaningful_sentences.append(sentence)
+                        if len(' '.join(meaningful_sentences)) > 150:
+                            break
+
+                if meaningful_sentences:
+                    summary = '. '.join(meaningful_sentences[:2]) + "."
+                else:
+                    # Last resort: use title-based summary
+                    summary = f"Article about {item.get('title', 'news topic')} from {item.get('source', 'news source')}"
+
+            return summary.strip() or f"Article from {item.get('source', 'Unknown source')} about {item.get('title', 'news topic')}"
+
+        except Exception as e:
+            return f"Article from {item.get('source', 'Unknown source')} - Summary generation failed"
     
     def get_provider_stats(self) -> Dict[str, Any]:
         """Get statistics for all providers"""

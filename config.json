@@ -7,5 +7,5 @@
         "reddit_technology": "https://www.reddit.com/r/technology/.rss",
         "techcrunch": "https://techcrunch.com/feed/"
     },
-    "ollama_model": "gemma3:4b"
+    "ollama_model": "llama3:8b"
 }

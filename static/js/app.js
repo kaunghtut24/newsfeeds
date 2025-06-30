@@ -1554,6 +1554,7 @@ class NewsFeedApp {
 
     async populateOllamaModels() {
         const ollamaModelSelect = document.getElementById('ollamaModelSelect');
+        const currentModelInfo = document.getElementById('currentModelInfo');
         if (!ollamaModelSelect) return;
 
         ollamaModelSelect.innerHTML = '<option value="">Loading models...</option>';
@@ -1565,6 +1566,13 @@ class NewsFeedApp {
             ollamaModelSelect.innerHTML = '';
 
             if (data.available && data.models && data.models.length > 0) {
+                // Add a default option
+                const defaultOption = document.createElement('option');
+                defaultOption.value = '';
+                defaultOption.textContent = '-- Select a model --';
+                ollamaModelSelect.appendChild(defaultOption);
+
+                // Add available models
                 data.models.forEach(model => {
                     const option = document.createElement('option');
                     option.value = model;
@@ -1577,6 +1585,12 @@ class NewsFeedApp {
                     ollamaModelSelect.value = this.currentConfig.ollama_model;
                 }
 
+                // Update current model info
+                if (currentModelInfo) {
+                    const currentModel = this.currentConfig.ollama_model || 'None selected';
+                    currentModelInfo.textContent = `Current: ${currentModel}`;
+                }
+
                 ollamaModelSelect.disabled = false;
             } else {
                 const option = document.createElement('option');
@@ -1584,11 +1598,19 @@ class NewsFeedApp {
                 option.textContent = 'Ollama not available';
                 ollamaModelSelect.appendChild(option);
                 ollamaModelSelect.disabled = true;
+
+                if (currentModelInfo) {
+                    currentModelInfo.textContent = 'Ollama service not available';
+                }
             }
         } catch (error) {
             console.error('Error fetching Ollama models:', error);
             ollamaModelSelect.innerHTML = '<option value="">Error loading models</option>';
             ollamaModelSelect.disabled = true;
+
+            if (currentModelInfo) {
+                currentModelInfo.textContent = 'Error loading models';
+            }
         }
     }
 
@@ -1600,9 +1622,23 @@ class NewsFeedApp {
         }
 
         try {
-            this.currentConfig.ollama_model = selectedModel;
-            await this.saveConfig();
-            this.showToast(`Model updated to: ${selectedModel}`, 'success');
+            // Use the new API endpoint for updating Ollama model
+            const response = await fetch('/api/ollama-model', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ model: selectedModel })
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                this.currentConfig.ollama_model = selectedModel;
+                this.showToast(result.message, 'success');
+            } else {
+                this.showToast(`Error: ${result.error}`, 'error');
+            }
         } catch (error) {
             this.showToast(`Error saving model: ${error.message}`, 'error');
         }

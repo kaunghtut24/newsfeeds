@@ -45,21 +45,24 @@
         }
 
         .sidebar-toggle {
-            background: none;
-            border: none;
+            background: var(--bg-sidebar);
+            border: 1px solid var(--color-gray-600);
             color: var(--text-inverse);
             font-size: var(--text-lg);
             cursor: pointer;
             padding: var(--space-2);
             border-radius: var(--radius-md);
-            transition: background-color 0.2s ease;
-            position: absolute;
-            right: -45px;
-            top: 50%;
-            transform: translateY(-50%);
-            background-color: var(--bg-sidebar);
+            transition: all 0.2s ease;
+            position: fixed;
+            left: 320px;
+            top: 20px;
             box-shadow: var(--shadow-md);
-            z-index: 10;
+            z-index: 1000;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
         .sidebar-toggle:hover {
@@ -67,7 +70,7 @@
         }
 
         .sidebar.collapsed .sidebar-toggle {
-            right: -35px;
+            left: 30px;
         }
 
         .sidebar-title {
@@ -401,16 +404,25 @@
                 </div>
             </div>
 
-            <!-- Legacy Ollama Section (for backward compatibility) -->
+            <!-- Ollama Model Selection -->
             <div class="sidebar-section">
-                <h3>🦙 Ollama (Legacy)</h3>
+                <h3>🦙 Ollama Model Selection</h3>
                 <div class="mb-3">
-                    <label for="ollamaModelSelect" class="form-label">Select Model:</label>
-                    <select id="ollamaModelSelect" class="form-select"></select>
+                    <label for="ollamaModelSelect" class="form-label">Available Models:</label>
+                    <select id="ollamaModelSelect" class="form-select">
+                        <option value="">Loading models...</option>
+                    </select>
+                    <small class="form-text text-muted">Select your preferred Ollama model for summarization</small>
                 </div>
-                <button onclick="saveOllamaModel()" class="btn btn-primary btn-sm">
-                    💾 Save Model
-                </button>
+                <div class="d-flex gap-2">
+                    <button onclick="saveOllamaModel()" class="btn btn-primary btn-sm">
+                        💾 Save Model
+                    </button>
+                    <button onclick="refreshOllamaModels()" class="btn btn-secondary btn-sm">
+                        🔄 Refresh
+                    </button>
+                </div>
+                <div id="currentModelInfo" class="mt-2 text-sm text-secondary"></div>
             </div>
 
             <!-- Filter Section -->
@@ -654,6 +666,12 @@
         function saveOllamaModel() {
             if (window.app) {
                 window.app.saveOllamaModel();
+            }
+        }
+
+        function refreshOllamaModels() {
+            if (window.app) {
+                window.app.populateOllamaModels();
             }
         }
 

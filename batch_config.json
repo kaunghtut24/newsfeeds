@@ -1,0 +1,27 @@
+{
+  "batch_processing": {
+    "articles_per_batch": 5,
+    "max_text_length": 2000,
+    "batch_delay_seconds": 0.5,
+    "max_retries_per_article": 2,
+    "timeout_per_article": 30,
+    "enable_parallel_sources": false,
+    "max_concurrent_sources": 2
+  },
+  "summarization": {
+    "max_tokens": 150,
+    "temperature": 0.3,
+    "fallback_summary_length": 100
+  },
+  "progress_tracking": {
+    "update_interval_seconds": 2,
+    "show_detailed_progress": true,
+    "log_individual_articles": true
+  },
+  "error_handling": {
+    "continue_on_source_failure": true,
+    "continue_on_article_failure": true,
+    "max_consecutive_failures": 3,
+    "failure_cooldown_seconds": 5
+  }
+}

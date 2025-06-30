@@ -8,6 +8,7 @@ import aiohttp
 import json
 import time
 import subprocess
+import requests
 from typing import Dict, List, Optional, Any
 
 from .base_provider import (
@@ -26,7 +27,9 @@ class OllamaProvider(BaseLLMProvider):
         
         # Default models (cost is 0 for local models)
         self.default_models = {
+            "qwen3:8b": {"cost_per_1k_tokens": 0.0, "max_tokens": 8192},
             "llama3:8b": {"cost_per_1k_tokens": 0.0, "max_tokens": 8192},
+            "gemma3:4b": {"cost_per_1k_tokens": 0.0, "max_tokens": 4096},
             "llama3:70b": {"cost_per_1k_tokens": 0.0, "max_tokens": 8192},
             "mistral:7b": {"cost_per_1k_tokens": 0.0, "max_tokens": 8192},
             "mistral:latest": {"cost_per_1k_tokens": 0.0, "max_tokens": 8192},
@@ -42,24 +45,144 @@ class OllamaProvider(BaseLLMProvider):
     async def _get_session(self):
         """Get or create aiohttp session"""
         if self.session is None or self.session.closed:
-            timeout = aiohttp.ClientTimeout(total=self.config.timeout)
-            self.session = aiohttp.ClientSession(timeout=timeout)
+            # Create session without timeout - we'll handle timeout per request
+            self.session = aiohttp.ClientSession()
         return self.session
+
+    async def close_session(self):
+        """Close the aiohttp session"""
+        if self.session and not self.session.closed:
+            await self.session.close()
+            self.session = None
     
     async def summarize(self, text: str, **kwargs) -> LLMResponse:
         """Summarize text using Ollama models"""
+        # Use synchronous method to avoid async context issues with Flask
+        return self._summarize_sync(text, **kwargs)
+
+    def _summarize_sync(self, text: str, **kwargs) -> LLMResponse:
+        """Synchronous fallback for summarization"""
         model = kwargs.get('model')
         if not model:
-            # Get the first available model
+            # Get the first available model from actual Ollama installation
             available_models = self.get_models()
-            model = available_models[0] if available_models else 'llama3:8b'
+            if available_models:
+                # Prefer models in this order: qwen3:8b, llama3:8b, gemma3:4b, then any other
+                preferred_order = ['qwen3:8b', 'llama3:8b', 'gemma3:4b']
+                for preferred in preferred_order:
+                    if preferred in available_models:
+                        model = preferred
+                        break
+                else:
+                    model = available_models[0]
+            else:
+                # Fallback to a reasonable default
+                model = 'qwen3:8b'
         max_tokens = kwargs.get('max_tokens', 150)
         temperature = kwargs.get('temperature', 0.3)
-        
+
         # Check if Ollama is available
         if not self.is_available():
             return self._create_response(
-                content="", model=model, tokens_used=0, cost=0.0, 
+                content="", model=model, tokens_used=0, cost=0.0,
+                response_time=0.0, success=False,
+                error_message="Ollama service is not available"
+            )
+
+        start_time = time.time()
+
+        # Create prompt for summarization
+        prompt = f"""Please provide a concise summary of the following news article in 2-3 sentences:
+
+{text[:2000]}
+
+Summary:"""
+
+        payload = {
+            "model": model,
+            "prompt": prompt,
+            "stream": False,
+            "options": {
+                "temperature": temperature,
+                "num_predict": max_tokens
+            }
+        }
+
+        try:
+            response = requests.post(
+                f"{self.base_url}/api/generate",
+                json=payload,
+                timeout=self.config.timeout
+            )
+
+            response_time = time.time() - start_time
+
+            if response.status_code == 200:
+                response_data = response.json()
+                content = response_data.get("response", "").strip()
+
+                # Estimate tokens (Ollama doesn't provide exact counts)
+                tokens_used = self._estimate_tokens(prompt + content)
+
+                # Cost is always 0 for local models
+                cost = 0.0
+
+                # Update provider stats
+                self.total_tokens += tokens_used
+
+                return self._create_response(
+                    content=content,
+                    model=model,
+                    tokens_used=tokens_used,
+                    cost=cost,
+                    response_time=response_time,
+                    success=True,
+                    done=response_data.get("done", True),
+                    context=response_data.get("context", [])
+                )
+            else:
+                raise LLMProviderError(f"Ollama API error: {response.text}")
+
+        except requests.RequestException as e:
+            response_time = time.time() - start_time
+            return self._create_response(
+                content="", model=model, tokens_used=0, cost=0.0,
+                response_time=response_time, success=False,
+                error_message=f"Network error: {str(e)}"
+            )
+        except Exception as e:
+            response_time = time.time() - start_time
+            return self._create_response(
+                content="", model=model, tokens_used=0, cost=0.0,
+                response_time=response_time, success=False,
+                error_message=f"Unexpected error: {str(e)}"
+            )
+
+    async def _summarize_async(self, text: str, **kwargs) -> LLMResponse:
+        """Async version of summarization"""
+        model = kwargs.get('model')
+        if not model:
+            # Get the first available model from actual Ollama installation
+            available_models = self.get_models()
+            if available_models:
+                # Prefer models in this order: qwen3:8b, llama3:8b, gemma3:4b, then any other
+                preferred_order = ['qwen3:8b', 'llama3:8b', 'gemma3:4b']
+                for preferred in preferred_order:
+                    if preferred in available_models:
+                        model = preferred
+                        break
+                else:
+                    model = available_models[0]
+            else:
+                # Fallback to a reasonable default
+                model = 'qwen3:8b'
+        max_tokens = kwargs.get('max_tokens', 150)
+        temperature = kwargs.get('temperature', 0.3)
+
+        # Check if Ollama is available
+        if not self.is_available():
+            return self._create_response(
+                content="", model=model, tokens_used=0, cost=0.0,
                 response_time=0.0, success=False,
                 error_message="Ollama service is not available"
             )
@@ -90,9 +213,12 @@ Summary:"""
         try:
             session = await self._get_session()
             
+            # Create timeout for this specific request
+            timeout = aiohttp.ClientTimeout(total=self.config.timeout)
             async with session.post(
                 f"{self.base_url}/api/generate",
-                json=payload
+                json=payload,
+                timeout=timeout
             ) as response:
                 response_time = time.time() - start_time
                 
@@ -183,9 +309,11 @@ Summary:"""
             
             payload = {"name": model}
             
+            timeout = aiohttp.ClientTimeout(total=self.config.timeout)
             async with session.post(
                 f"{self.base_url}/api/pull",
-                json=payload
+                json=payload,
+                timeout=timeout
             ) as response:
                 if response.status == 200:
                     return {"success": True, "message": f"Model {model} pulled successfully"}
@@ -219,9 +347,11 @@ Summary:"""
         try:
             session = await self._get_session()
             
+            timeout = aiohttp.ClientTimeout(total=self.config.timeout)
             async with session.post(
                 f"{self.base_url}/api/show",
-                json={"name": model}
+                json={"name": model},
+                timeout=timeout
             ) as response:
                 if response.status == 200:
                     return await response.json()
@@ -236,7 +366,8 @@ Summary:"""
         try:
             session = await self._get_session()
             
-            async with session.get(f"{self.base_url}/api/tags") as response:
+            timeout = aiohttp.ClientTimeout(total=self.config.timeout)
+            async with session.get(f"{self.base_url}/api/tags", timeout=timeout) as response:
                 if response.status == 200:
                     data = await response.json()
                     models = [model['name'] for model in data.get('models', [])]

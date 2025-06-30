@@ -11,12 +11,13 @@ import json
 import subprocess
 from datetime import datetime
 
-from src.core.news_fetcher import NewsFetcher
-from src.core.multi_llm_summarizer import MultiLLMSummarizer
-from src.core.data_manager import DataManager
-from src.core.reporting import ReportGenerator
-from src.core.categorizer import Categorizer
-from src.core.search_engine import NewsSearchEngine, SearchQuery
+from core.news_fetcher import NewsFetcher
+from core.multi_llm_summarizer import MultiLLMSummarizer
+from core.summarizer import Summarizer
+from core.data_manager import DataManager
+from core.reporting import ReportGenerator
+from core.categorizer import Categorizer
+from core.search_engine import NewsSearchEngine, SearchQuery
 from src.core.saved_searches import SavedSearchManager
 from src.core.content_enhancer import ContentEnhancer
 
@@ -58,6 +59,16 @@ content_enhancer = ContentEnhancer()
 is_processing = False
 processing_status = ""
 processing_start_time = None
+processing_stats = {
+    "total_sources": 0,
+    "completed_sources": 0,
+    "current_source": "",
+    "total_articles": 0,
+    "completed_articles": 0,
+    "failed_articles": 0,
+    "current_batch": 0,
+    "total_batches": 0
+}
 
 
 
@@ -88,55 +99,117 @@ def fetch_news():
     
     # Start processing in background
     def process_news():
-        global is_processing, processing_status, processing_start_time
+        global is_processing, processing_status, processing_start_time, processing_stats
 
         try:
             is_processing = True
             processing_start_time = datetime.now()
-            processing_status = "Fetching news from sources..."
-            
-            # Fetch news
-            news_items = news_fetcher.fetch_all_news()
-            
-            if not news_items:
-                processing_status = "No news items found"
-                is_processing = False
-                return
-            
-            # Categorize news
-            processing_status = f"Categorizing {len(news_items)} news items..."
-            for item in news_items:
-                item['category'] = categorizer.categorize_news(item)
+            all_processed_news = []
 
-            processing_status = f"Summarizing {len(news_items)} news items with Multi-LLM..."
+            # Initialize processing stats
+            sources = list(news_sources.items())
+            processing_stats.update({
+                "total_sources": len(sources),
+                "completed_sources": 0,
+                "current_source": "",
+                "total_articles": 0,
+                "completed_articles": 0,
+                "failed_articles": 0,
+                "current_batch": 0,
+                "total_batches": 0
+            })
 
-            # Summarize news using multi-LLM system
-            try:
-                summarized_news = multi_llm_summarizer.summarize_news_items(news_items)
-            except Exception as e:
-                processing_status = f"⚠️ LLM summarization failed: {str(e)}. Using original content."
-                # Continue with original news items if LLM fails
-                summarized_news = news_items
+            for source_idx, (source_name, source_url) in enumerate(sources, 1):
+                try:
+                    processing_stats["current_source"] = source_name
+                    processing_status = f"📡 Fetching from {source_name} ({source_idx}/{processing_stats['total_sources']})..."
 
-            processing_status = f"Enhancing content for {len(summarized_news)} news items..."
+                    # Fetch news from single source
+                    if "hackernews" in source_name:
+                        source_news = news_fetcher.fetch_news_from_api(source_name)
+                    else:
+                        source_news = news_fetcher.fetch_news_from_rss(source_name, source_url)
 
-            # Enhance content with sentiment analysis and other features
-            try:
-                enhanced_news = content_enhancer.enhance_articles(summarized_news)
-            except Exception as e:
-                processing_status = f"⚠️ Content enhancement failed: {str(e)}. Using basic content."
-                enhanced_news = summarized_news
+                    if not source_news:
+                        processing_status = f"⚠️ No news found from {source_name}"
+                        processing_stats["completed_sources"] += 1
+                        continue
 
-            # Save data
-            try:
-                data_manager.save_news_data(enhanced_news)
-                report_generator.create_html_report(enhanced_news)
-                processing_status = f"✅ Completed! Processed {len(enhanced_news)} news items with sentiment analysis"
-            except Exception as e:
-                processing_status = f"⚠️ Completed with errors: {str(e)}"
-            
+                    # Update article counts
+                    processing_stats["total_articles"] += len(source_news)
+
+                    processing_status = f"📝 Processing {len(source_news)} articles from {source_name}..."
+
+                    # Categorize news for this source
+                    for item in source_news:
+                        item['category'] = categorizer.categorize_news(item)
+
+                    # Summarize news from this source with batching
+                    processing_status = f"🤖 Summarizing {len(source_news)} articles from {source_name}..."
+
+                    try:
+                        # Process in smaller batches to avoid overwhelming the model
+                        batch_size = 5  # Process 5 articles at a time
+                        source_summarized = []
+                        total_batches = (len(source_news) + batch_size - 1) // batch_size
+                        processing_stats["total_batches"] = total_batches
+
+                        for batch_start in range(0, len(source_news), batch_size):
+                            batch_end = min(batch_start + batch_size, len(source_news))
+                            batch = source_news[batch_start:batch_end]
+                            current_batch = batch_start // batch_size + 1
+                            processing_stats["current_batch"] = current_batch
+
+                            processing_status = f"🤖 Summarizing batch {current_batch}/{total_batches} from {source_name} ({batch_start + 1}-{batch_end}/{len(source_news)})..."
+
+                            # Summarize this batch with enhanced parameters
+                            batch_summarized = multi_llm_summarizer.summarize_news_items(
+                                batch,
+                                preferred_model=ollama_model,
+                                provider_preference="ollama",
+                                max_text_length=2000,
+                                batch_delay=0.5,
+                                max_retries=2
+                            )
+                            source_summarized.extend(batch_summarized)
+                            processing_stats["completed_articles"] += len(batch_summarized)
+
+                    except Exception as e:
+                        processing_status = f"⚠️ Summarization failed for {source_name}: {str(e)}. Using original content."
+                        source_summarized = source_news
+
+                    # Enhance content for this source
+                    processing_status = f"✨ Enhancing content for {source_name}..."
+                    try:
+                        enhanced_source_news = content_enhancer.enhance_articles(source_summarized)
+                    except Exception as e:
+                        processing_status = f"⚠️ Enhancement failed for {source_name}: {str(e)}. Using basic content."
+                        enhanced_source_news = source_summarized
+
+                    all_processed_news.extend(enhanced_source_news)
+                    processing_stats["completed_sources"] += 1
+                    processing_status = f"✅ Completed {source_name}: {len(enhanced_source_news)} articles processed ({processing_stats['completed_sources']}/{processing_stats['total_sources']} sources done)"
+
+                except Exception as e:
+                    processing_stats["failed_articles"] += len(source_news) if 'source_news' in locals() else 0
+                    processing_stats["completed_sources"] += 1
+                    processing_status = f"❌ Error processing {source_name}: {str(e)}"
+                    continue
+
+            # Final save and report generation
+            if all_processed_news:
+                processing_status = f"💾 Saving {len(all_processed_news)} processed articles..."
+                try:
+                    data_manager.save_news_data(all_processed_news)
+                    report_generator.create_html_report(all_processed_news)
+                    processing_status = f"✅ Completed! Processed {len(all_processed_news)} articles from {total_sources} sources"
+                except Exception as e:
+                    processing_status = f"⚠️ Completed with save errors: {str(e)}"
+            else:
+                processing_status = "❌ No articles were successfully processed"
+
         except Exception as e:
-            processing_status = f"❌ Error: {str(e)}"
+            processing_status = f"❌ Critical error: {str(e)}"
         finally:
             is_processing = False
             processing_start_time = None
@@ -150,8 +223,8 @@ def fetch_news():
 
 @app.route('/api/status')
 def get_status():
-    """API endpoint to get processing status"""
-    global is_processing, processing_status, processing_start_time
+    """API endpoint to get processing status with detailed progress"""
+    global is_processing, processing_status, processing_start_time, processing_stats
 
     # Check for timeout (10 minutes)
     if is_processing and processing_start_time:
@@ -172,16 +245,57 @@ def get_status():
         response_data['processing_duration'] = int(elapsed)
         response_data['status'] = f"{processing_status} (Running for {int(elapsed//60)}m {int(elapsed%60)}s)"
 
+        # Add detailed progress information
+        source_progress = 0
+        article_progress = 0
+
+        if processing_stats["total_sources"] > 0:
+            source_progress = (processing_stats["completed_sources"] / processing_stats["total_sources"]) * 100
+
+        if processing_stats["total_articles"] > 0:
+            article_progress = (processing_stats["completed_articles"] / processing_stats["total_articles"]) * 100
+
+        response_data['progress'] = {
+            'sources': {
+                'total': processing_stats["total_sources"],
+                'completed': processing_stats["completed_sources"],
+                'current': processing_stats["current_source"],
+                'percentage': round(source_progress, 1)
+            },
+            'articles': {
+                'total': processing_stats["total_articles"],
+                'completed': processing_stats["completed_articles"],
+                'failed': processing_stats["failed_articles"],
+                'percentage': round(article_progress, 1)
+            },
+            'batches': {
+                'current': processing_stats["current_batch"],
+                'total': processing_stats["total_batches"]
+            }
+        }
+
     return jsonify(response_data)
 
 @app.route('/api/reset-processing', methods=['POST'])
 def reset_processing():
     """Reset processing status (emergency reset)"""
-    global is_processing, processing_status, processing_start_time
+    global is_processing, processing_status, processing_start_time, processing_stats
 
     is_processing = False
     processing_status = "Processing reset by user"
     processing_start_time = None
+
+    # Reset processing stats
+    processing_stats.update({
+        "total_sources": 0,
+        "completed_sources": 0,
+        "current_source": "",
+        "total_articles": 0,
+        "completed_articles": 0,
+        "failed_articles": 0,
+        "current_batch": 0,
+        "total_batches": 0
+    })
 
     return jsonify({
         "success": True,
@@ -231,7 +345,7 @@ def manage_config():
             news_sources = config["news_sources"]
             ollama_model = config["ollama_model"]
             news_fetcher = NewsFetcher(news_sources)
-            summarizer = Summarizer(model=ollama_model) # Update summarizer with new model
+            # Note: Summarizer will be re-initialized on next news fetch
             return jsonify({"success": True, "message": "Configuration updated successfully"})
         return jsonify({"success": False, "message": "Invalid configuration data"})
 
@@ -339,6 +453,44 @@ def disable_provider(provider_name):
             "error": str(e)
         })
 
+@app.route('/api/ollama-model', methods=['GET', 'POST'])
+def manage_ollama_model():
+    """Get or set the preferred Ollama model"""
+    global config, ollama_model
+
+    if request.method == 'GET':
+        return jsonify({
+            "success": True,
+            "current_model": ollama_model,
+            "available_models": []  # Will be populated by frontend
+        })
+    elif request.method == 'POST':
+        try:
+            data = request.json
+            new_model = data.get('model')
+
+            if not new_model:
+                return jsonify({
+                    "success": False,
+                    "error": "Model name is required"
+                })
+
+            # Update global config
+            config['ollama_model'] = new_model
+            ollama_model = new_model
+            save_config(config)
+
+            return jsonify({
+                "success": True,
+                "message": f"Ollama model updated to: {new_model}",
+                "current_model": new_model
+            })
+        except Exception as e:
+            return jsonify({
+                "success": False,
+                "error": str(e)
+            })
+
 @app.route('/api/llm-config', methods=['GET', 'POST'])
 def llm_config():
     """Get or update LLM configuration"""
@@ -349,6 +501,25 @@ def llm_config():
             return jsonify({
                 "success": True,
                 "config": config
+            })
+        except Exception as e:
+            return jsonify({
+                "success": False,
+                "error": str(e)
+            })
+    elif request.method == 'POST':
+        try:
+            new_config = request.json
+            with open('llm_config.json', 'w') as f:
+                json.dump(new_config, f, indent=2)
+
+            # Reinitialize the multi-LLM summarizer with new config
+            global multi_llm_summarizer
+            multi_llm_summarizer = MultiLLMSummarizer(config_file='llm_config.json')
+
+            return jsonify({
+                "success": True,
+                "message": "LLM configuration updated successfully"
             })
         except Exception as e:
             return jsonify({

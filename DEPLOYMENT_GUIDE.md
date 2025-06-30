@@ -99,6 +99,8 @@ cp llm_config.json llm_config_local.json
 
 # Start application
 python -m src.web_news_app
+
+source ~/miniconda3/etc/profile.d/conda.sh && conda activate news_feed_env && cd /home/yuthar/Documents/news_feed_application && PYTHONPATH=/home/yuthar/Documents/news_feed_application python src/web_news_app.py
 ```
 
 #### Option B: Docker Deployment
