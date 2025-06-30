@@ -1,0 +1,11 @@
+{
+    "news_sources": {
+        "Businessline": "https://www.thehindubusinessline.com/economy/feeder/default.rss",
+        "The Hindu": "https://www.thehindu.com/business/feeder/default.rss",
+        "hackernews": "https://news.ycombinator.com/rss",
+        "reddit_programming": "https://www.reddit.com/r/programming/.rss",
+        "reddit_technology": "https://www.reddit.com/r/technology/.rss",
+        "techcrunch": "https://techcrunch.com/feed/"
+    },
+    "ollama_model": "gemma3:4b"
+}

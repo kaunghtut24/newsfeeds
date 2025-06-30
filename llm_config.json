@@ -1,0 +1,144 @@
+{
+  "openai": {
+    "enabled": false,
+    "priority": 1,
+    "api_key": null,
+    "models": {
+      "gpt-3.5-turbo": {
+        "cost_per_1k_tokens": 0.002,
+        "max_tokens": 4096,
+        "context_window": 4096
+      },
+      "gpt-4": {
+        "cost_per_1k_tokens": 0.03,
+        "max_tokens": 8192,
+        "context_window": 8192
+      },
+      "gpt-4-turbo": {
+        "cost_per_1k_tokens": 0.01,
+        "max_tokens": 4096,
+        "context_window": 128000
+      },
+      "gpt-4o": {
+        "cost_per_1k_tokens": 0.005,
+        "max_tokens": 4096,
+        "context_window": 128000
+      }
+    },
+    "rate_limits": {
+      "requests_per_minute": 60
+    },
+    "timeout": 30
+  },
+  "anthropic": {
+    "enabled": false,
+    "priority": 2,
+    "api_key": null,
+    "models": {
+      "claude-3-haiku-20240307": {
+        "cost_per_1k_tokens": 0.00025,
+        "max_tokens": 4096,
+        "context_window": 200000
+      },
+      "claude-3-sonnet-20240229": {
+        "cost_per_1k_tokens": 0.003,
+        "max_tokens": 4096,
+        "context_window": 200000
+      },
+      "claude-3-opus-20240229": {
+        "cost_per_1k_tokens": 0.015,
+        "max_tokens": 4096,
+        "context_window": 200000
+      },
+      "claude-3-5-sonnet-20241022": {
+        "cost_per_1k_tokens": 0.003,
+        "max_tokens": 8192,
+        "context_window": 200000
+      }
+    },
+    "rate_limits": {
+      "requests_per_minute": 50
+    },
+    "timeout": 30
+  },
+  "google": {
+    "enabled": false,
+    "priority": 3,
+    "api_key": null,
+    "models": {
+      "gemini-1.5-flash": {
+        "cost_per_1k_tokens": 0.00015,
+        "max_tokens": 8192,
+        "context_window": 1000000
+      },
+      "gemini-1.5-pro": {
+        "cost_per_1k_tokens": 0.0035,
+        "max_tokens": 8192,
+        "context_window": 2000000
+      },
+      "gemini-pro": {
+        "cost_per_1k_tokens": 0.0005,
+        "max_tokens": 8192,
+        "context_window": 32768
+      }
+    },
+    "rate_limits": {
+      "requests_per_minute": 60
+    },
+    "timeout": 30
+  },
+  "ollama": {
+    "enabled": true,
+    "priority": 10,
+    "base_url": "http://localhost:11434",
+    "models": {
+      "llama3:8b": {
+        "cost_per_1k_tokens": 0.0,
+        "max_tokens": 8192
+      },
+      "llama3:70b": {
+        "cost_per_1k_tokens": 0.0,
+        "max_tokens": 8192
+      },
+      "mistral:7b": {
+        "cost_per_1k_tokens": 0.0,
+        "max_tokens": 8192
+      },
+      "mistral:latest": {
+        "cost_per_1k_tokens": 0.0,
+        "max_tokens": 8192
+      },
+      "codellama:7b": {
+        "cost_per_1k_tokens": 0.0,
+        "max_tokens": 8192
+      },
+      "gemma:7b": {
+        "cost_per_1k_tokens": 0.0,
+        "max_tokens": 8192
+      },
+      "phi3:mini": {
+        "cost_per_1k_tokens": 0.0,
+        "max_tokens": 4096
+      },
+      "qwen2:7b": {
+        "cost_per_1k_tokens": 0.0,
+        "max_tokens": 8192
+      }
+    },
+    "rate_limits": {
+      "requests_per_minute": 1000
+    },
+    "timeout": 60
+  },
+  "budget": {
+    "daily_limit": 10.0,
+    "monthly_limit": 200.0
+  },
+  "fallback_strategy": "priority_order",
+  "default_model_preferences": {
+    "openai": "gpt-3.5-turbo",
+    "anthropic": "claude-3-haiku-20240307",
+    "google": "gemini-1.5-flash",
+    "ollama": "llama3:8b"
+  }
+}
