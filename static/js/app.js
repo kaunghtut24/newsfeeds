@@ -657,13 +657,15 @@ class NewsFeedApp {
     renderNewsItem(item) {
         const timeAgo = this.getTimeAgo(item.timestamp);
         const sentiment = this.getSentimentBadge(item.sentiment);
-        
+        const categoryClass = this.getCategoryClass(item.category);
+
         return `
             <article class="news-item card p-6 hover:shadow-lg transition-shadow">
                 <div class="news-header mb-4">
                     <h4 class="news-title font-semibold text-lg mb-2">${item.title}</h4>
                     <div class="news-meta flex items-center gap-4 text-sm text-secondary">
                         <span class="source-badge">${item.source}</span>
+                        <span class="category-badge ${categoryClass}">${item.category || 'General'}</span>
                         <span class="time-badge">${timeAgo}</span>
                         ${sentiment}
                         <a href="${item.link}" target="_blank" class="read-more-link">
@@ -680,14 +682,24 @@ class NewsFeedApp {
 
     getSentimentBadge(sentiment) {
         if (!sentiment) return '';
-        
+
         const badges = {
             positive: '<span class="sentiment-badge sentiment-positive">😊 Positive</span>',
             negative: '<span class="sentiment-badge sentiment-negative">😔 Negative</span>',
             neutral: '<span class="sentiment-badge sentiment-neutral">😐 Neutral</span>'
         };
-        
+
         return badges[sentiment.toLowerCase()] || '';
+    }
+
+    getCategoryClass(category) {
+        if (!category) return 'general';
+
+        // Convert category name to CSS class
+        return category.toLowerCase()
+            .replace(/\s+/g, '-')
+            .replace(/&/g, '')
+            .replace(/[^a-z0-9-]/g, '');
     }
 
     getTimeAgo(timestamp) {
@@ -1273,7 +1285,7 @@ class NewsFeedApp {
 
                 <div class="search-result-meta">
                     <span class="source-badge">${article.source}</span>
-                    <span class="category-badge">${article.category || 'Uncategorized'}</span>
+                    <span class="category-badge ${this.getCategoryClass(article.category)}">${article.category || 'Uncategorized'}</span>
                     <span class="time-badge">${timeAgo}</span>
                     <a href="${article.link}" target="_blank" class="read-more-link">
                         Read Full Article →
