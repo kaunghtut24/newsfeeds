@@ -336,6 +336,7 @@ class NewsFeedApp {
         try {
             await this.loadConfig();
             await this.loadNews();
+            await this.loadSources();
         } catch (error) {
             this.showToast('Failed to load initial data', 'error');
             console.error('Initial data loading error:', error);
@@ -759,6 +760,264 @@ class NewsFeedApp {
         });
     }
 
+    // Source Management
+    async loadSources() {
+        try {
+            const response = await fetch('/api/sources');
+            const data = await response.json();
+
+            if (data.success) {
+                this.displaySourcesSelection(data.sources);
+                this.debug('✅ Sources loaded successfully', data);
+            } else {
+                console.error('Failed to load sources:', data.error);
+            }
+        } catch (error) {
+            console.error('Error loading sources:', error);
+        }
+    }
+
+    displaySourcesSelection(sources) {
+        const container = document.getElementById('sourcesList');
+        if (!container) return;
+
+        container.innerHTML = '';
+
+        if (!sources || sources.length === 0) {
+            container.innerHTML = '<p class="text-sm text-secondary">No sources configured</p>';
+            return;
+        }
+
+        sources.forEach(source => {
+            const sourceItem = document.createElement('div');
+            sourceItem.className = 'source-checkbox-item';
+
+            sourceItem.innerHTML = `
+                <input type="checkbox"
+                       id="source-${source.name}"
+                       ${source.enabled ? 'checked' : ''}
+                       onchange="app.toggleSource('${source.name}', this.checked)">
+                <label for="source-${source.name}">
+                    <div>${source.name}</div>
+                    <div class="source-info">${source.type.toUpperCase()} • ${source.category}</div>
+                </label>
+                <div class="source-actions">
+                    <button onclick="app.editSource('${source.name}', '${source.url}')"
+                            class="btn btn-secondary btn-xs" title="Edit Source">
+                        ✏️
+                    </button>
+                    <button onclick="app.deleteSource('${source.name}')"
+                            class="btn btn-danger btn-xs" title="Delete Source">
+                        🗑️
+                    </button>
+                </div>
+            `;
+
+            container.appendChild(sourceItem);
+        });
+
+        // Update toggle all button text
+        const enabledCount = sources.filter(s => s.enabled).length;
+        const toggleAllBtn = document.getElementById('toggleAllBtn');
+        if (toggleAllBtn) {
+            toggleAllBtn.textContent = enabledCount === sources.length ? 'Disable All' : 'Enable All';
+        }
+    }
+
+    async toggleSource(sourceName, enabled) {
+        try {
+            const response = await fetch('/api/sources/toggle', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    source_name: sourceName,
+                    enabled: enabled
+                })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                this.showToast(
+                    `${sourceName} ${enabled ? 'enabled' : 'disabled'}`,
+                    'success'
+                );
+
+                // Reload sources to update UI
+                await this.loadSources();
+            } else {
+                this.showToast(`Failed to toggle source: ${data.error}`, 'error');
+
+                // Revert checkbox state
+                const checkbox = document.getElementById(`source-${sourceName}`);
+                if (checkbox) {
+                    checkbox.checked = !enabled;
+                }
+            }
+        } catch (error) {
+            console.error('Error toggling source:', error);
+            this.showToast('Error toggling source', 'error');
+
+            // Revert checkbox state
+            const checkbox = document.getElementById(`source-${sourceName}`);
+            if (checkbox) {
+                checkbox.checked = !enabled;
+            }
+        }
+    }
+
+    async toggleAllSources() {
+        try {
+            const response = await fetch('/api/sources');
+            const data = await response.json();
+
+            if (!data.success) {
+                this.showToast('Failed to load sources', 'error');
+                return;
+            }
+
+            const sources = data.sources;
+            const enabledCount = sources.filter(s => s.enabled).length;
+            const shouldEnable = enabledCount < sources.length;
+
+            // Toggle all sources
+            const promises = sources.map(source =>
+                this.toggleSourceSilent(source.name, shouldEnable)
+            );
+
+            await Promise.all(promises);
+
+            this.showToast(
+                `All sources ${shouldEnable ? 'enabled' : 'disabled'}`,
+                'success'
+            );
+
+            // Reload sources to update UI
+            await this.loadSources();
+
+        } catch (error) {
+            console.error('Error toggling all sources:', error);
+            this.showToast('Error toggling all sources', 'error');
+        }
+    }
+
+    async toggleSourceSilent(sourceName, enabled) {
+        try {
+            const response = await fetch('/api/sources/toggle', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    source_name: sourceName,
+                    enabled: enabled
+                })
+            });
+
+            return await response.json();
+        } catch (error) {
+            console.error(`Error toggling source ${sourceName}:`, error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    async editSource(sourceName, currentUrl) {
+        try {
+            const newName = prompt(`Edit source name:`, sourceName);
+            if (!newName || newName === sourceName) {
+                const newUrl = prompt(`Edit source URL:`, currentUrl);
+                if (!newUrl || newUrl === currentUrl) {
+                    return; // User cancelled or no changes
+                }
+
+                // Only URL changed
+                const response = await fetch('/api/sources/edit', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        old_name: sourceName,
+                        new_name: sourceName,
+                        new_url: newUrl
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    this.showToast(`Source "${sourceName}" updated successfully`, 'success');
+                    await this.loadSources();
+                } else {
+                    this.showToast(`Failed to update source: ${data.error}`, 'error');
+                }
+            } else {
+                // Name changed, also ask for URL
+                const newUrl = prompt(`Edit source URL:`, currentUrl);
+                if (!newUrl) {
+                    return; // User cancelled
+                }
+
+                const response = await fetch('/api/sources/edit', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        old_name: sourceName,
+                        new_name: newName,
+                        new_url: newUrl
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    this.showToast(`Source updated to "${newName}"`, 'success');
+                    await this.loadSources();
+                } else {
+                    this.showToast(`Failed to update source: ${data.error}`, 'error');
+                }
+            }
+        } catch (error) {
+            console.error('Error editing source:', error);
+            this.showToast('Error editing source', 'error');
+        }
+    }
+
+    async deleteSource(sourceName) {
+        try {
+            const confirmed = confirm(`Are you sure you want to delete the source "${sourceName}"?`);
+            if (!confirmed) {
+                return;
+            }
+
+            const response = await fetch('/api/sources/delete', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    source_name: sourceName
+                })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                this.showToast(`Source "${sourceName}" deleted successfully`, 'success');
+                await this.loadSources();
+            } else {
+                this.showToast(`Failed to delete source: ${data.error}`, 'error');
+            }
+        } catch (error) {
+            console.error('Error deleting source:', error);
+            this.showToast('Error deleting source', 'error');
+        }
+    }
+
     // Configuration
     async loadConfig() {
         try {
@@ -916,8 +1175,15 @@ class NewsFeedApp {
             this.showToast('Performing health check...', 'info');
 
             const response = await fetch('/api/llm-providers/health-check', {
-                method: 'POST'
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
             });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
 
             const data = await response.json();
 
@@ -931,12 +1197,26 @@ class NewsFeedApp {
                     healthyCount === totalCount ? 'success' : 'warning'
                 );
 
+                // Show detailed results
+                console.log('Health check results:', results);
+
                 this.loadLLMProviders(); // Refresh the display
             } else {
                 this.showToast(`Health check failed: ${data.error}`, 'error');
             }
         } catch (error) {
-            this.showToast(`Health check error: ${error.message}`, 'error');
+            console.error('Health check error:', error);
+
+            // Provide more specific error messages
+            if (error.message.includes('Unexpected token')) {
+                this.showToast('Health check error: Server returned invalid response (check server logs)', 'error');
+            } else if (error.message.includes('HTTP 404')) {
+                this.showToast('Health check error: Endpoint not found (server may need restart)', 'error');
+            } else if (error.message.includes('Failed to fetch')) {
+                this.showToast('Health check error: Cannot connect to server', 'error');
+            } else {
+                this.showToast(`Health check error: ${error.message}`, 'error');
+            }
         }
     }
 

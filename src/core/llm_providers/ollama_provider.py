@@ -78,6 +78,14 @@ class OllamaProvider(BaseLLMProvider):
             else:
                 # Fallback to a reasonable default
                 model = 'qwen3:8b'
+        else:
+            # Validate that the specified model is available
+            available_models = self.get_models()
+            if available_models and model not in available_models:
+                print(f"⚠️ Specified model '{model}' not available. Available models: {available_models}")
+                # Fall back to first available model
+                model = available_models[0] if available_models else "llama3:8b"
+                print(f"   Using fallback model: {model}")
         max_tokens = kwargs.get('max_tokens', 150)
         temperature = kwargs.get('temperature', 0.3)
 
@@ -92,7 +100,7 @@ class OllamaProvider(BaseLLMProvider):
         start_time = time.time()
 
         # Create prompt for summarization
-        prompt = f"""Please provide a concise summary of the following news article in 2-3 sentences:
+        prompt = f"""Read this news article and write a 2-3 sentence summary. Do not include any introductory phrases like "Here is" or "This is". Start directly with the facts:
 
 {text[:2000]}
 
@@ -120,6 +128,9 @@ Summary:"""
             if response.status_code == 200:
                 response_data = response.json()
                 content = response_data.get("response", "").strip()
+
+                # Clean up any remaining prefixes
+                content = self._clean_summary_prefixes(content)
 
                 # Estimate tokens (Ollama doesn't provide exact counts)
                 tokens_used = self._estimate_tokens(prompt + content)
@@ -176,6 +187,14 @@ Summary:"""
             else:
                 # Fallback to a reasonable default
                 model = 'qwen3:8b'
+        else:
+            # Validate that the specified model is available
+            available_models = self.get_models()
+            if available_models and model not in available_models:
+                print(f"⚠️ Specified model '{model}' not available. Available models: {available_models}")
+                # Fall back to first available model
+                model = available_models[0] if available_models else "llama3:8b"
+                print(f"   Using fallback model: {model}")
         max_tokens = kwargs.get('max_tokens', 150)
         temperature = kwargs.get('temperature', 0.3)
 
@@ -188,9 +207,8 @@ Summary:"""
             )
         
         # Prepare the prompt
-        prompt = f"""You are a professional news summarizer. Create a concise, informative summary of the following news article in 2-3 sentences. Focus on the key facts, main points, and important details. Be objective and factual.
+        prompt = f"""Read this news article and write a 2-3 sentence summary. Do not include any introductory phrases like "Here is" or "This is". Start directly with the facts:
 
-News Article:
 {text}
 
 Summary:"""
@@ -435,6 +453,43 @@ Summary:"""
         if self.session and not self.session.closed:
             await self.session.close()
     
+    def _clean_summary_prefixes(self, content: str) -> str:
+        """Remove common AI-generated prefixes from summaries"""
+        # List of common prefixes to remove
+        prefixes_to_remove = [
+            "Here is a summary of the article in 2-3 clear sentences:",
+            "Here is a summary of the article in 2-3 sentences:",
+            "Here is a concise summary of the article in 2-3 sentences:",
+            "Here is a summary of the article:",
+            "Here is a concise summary:",
+            "Here's a summary:",
+            "Here's a concise summary:",
+            "This is a summary:",
+            "The article discusses:",
+            "Summary:",
+            "Article summary:",
+            "In summary:",
+            "To summarize:",
+            "Here is",
+            "Here's",
+            "This is",
+            "The article"
+        ]
+
+        # Clean the content
+        cleaned_content = content.strip()
+
+        # Remove prefixes (case insensitive)
+        for prefix in prefixes_to_remove:
+            if cleaned_content.lower().startswith(prefix.lower()):
+                cleaned_content = cleaned_content[len(prefix):].strip()
+                # Remove any leading colon or dash
+                if cleaned_content.startswith((':','-')):
+                    cleaned_content = cleaned_content[1:].strip()
+                break
+
+        return cleaned_content
+
     def __del__(self):
         """Cleanup when provider is destroyed"""
         if self.session and not self.session.closed:

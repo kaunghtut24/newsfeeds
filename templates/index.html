@@ -165,6 +165,75 @@
             color: var(--text-inverse);
         }
 
+        .sources-selection {
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid var(--border-primary);
+            border-radius: var(--radius-md);
+            padding: var(--space-2);
+            background-color: var(--color-gray-800);
+        }
+
+        .source-checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: var(--space-2);
+            padding: var(--space-2);
+            margin-bottom: var(--space-1);
+            border-radius: var(--radius-sm);
+            transition: background-color 0.2s ease;
+        }
+
+        .source-checkbox-item:hover {
+            background-color: var(--color-gray-700);
+        }
+
+        .source-actions {
+            display: flex;
+            gap: 0.25rem;
+            margin-left: auto;
+        }
+
+        .source-actions button {
+            padding: 0.25rem;
+            min-width: auto;
+            font-size: 0.75rem;
+        }
+
+        .source-checkbox-item input[type="checkbox"] {
+            margin: 0;
+        }
+
+        .source-checkbox-item label {
+            flex: 1;
+            margin: 0;
+            cursor: pointer;
+            font-size: var(--text-sm);
+            color: var(--text-inverse);
+        }
+
+        .source-checkbox-item .source-info {
+            font-size: var(--text-xs);
+            color: var(--text-secondary);
+            margin-left: 1.5rem;
+        }
+
+        .add-source-section {
+            margin-top: var(--space-3);
+            padding-top: var(--space-3);
+            border-top: 1px solid var(--border-primary);
+        }
+
+        .add-source-section summary {
+            color: var(--text-inverse);
+            font-weight: 500;
+        }
+
+        .btn-xs {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.75rem;
+        }
+
         .main-content {
             flex: 1;
             padding: var(--space-6);
@@ -349,18 +418,33 @@
             <!-- News Sources Section -->
             <div class="sidebar-section">
                 <h3>📡 News Sources</h3>
-                <div id="sourcesList" class="mb-4"></div>
                 <div class="mb-3">
-                    <label for="sourceName" class="form-label">Source Name:</label>
-                    <input type="text" id="sourceName" class="form-input" placeholder="e.g., My Tech Blog">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="form-label">Select Sources to Fetch:</span>
+                        <button onclick="app.toggleAllSources()" class="btn btn-secondary btn-xs" id="toggleAllBtn">
+                            Toggle All
+                        </button>
+                    </div>
+                    <div id="sourcesList" class="sources-selection"></div>
                 </div>
-                <div class="mb-3">
-                    <label for="sourceUrl" class="form-label">RSS/API URL:</label>
-                    <input type="text" id="sourceUrl" class="form-input" placeholder="e.g., https://example.com/feed.xml">
-                </div>
-                <button onclick="addSource()" class="btn btn-primary btn-sm">
-                    ➕ Add Source
-                </button>
+
+                <!-- Collapsible Add Source Section -->
+                <details class="add-source-section">
+                    <summary class="form-label" style="cursor: pointer; margin-bottom: 0.5rem;">
+                        ➕ Add New Source
+                    </summary>
+                    <div class="mb-3">
+                        <label for="sourceName" class="form-label">Source Name:</label>
+                        <input type="text" id="sourceName" class="form-input" placeholder="e.g., My Tech Blog">
+                    </div>
+                    <div class="mb-3">
+                        <label for="sourceUrl" class="form-label">RSS/API URL:</label>
+                        <input type="text" id="sourceUrl" class="form-input" placeholder="e.g., https://example.com/feed.xml">
+                    </div>
+                    <button onclick="addSource()" class="btn btn-primary btn-sm">
+                        ➕ Add Source
+                    </button>
+                </details>
             </div>
 
             <!-- Multi-LLM Provider Section -->

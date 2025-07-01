@@ -12,8 +12,8 @@ class Categorizer:
                 "low_priority": ["computer", "laptop", "smartphone", "tablet", "device", "electronic", "online", "website", "email", "social media", "streaming", "video", "gaming", "esports"]
             },
             "Business": {
-                "high_priority": ["merger", "acquisition", "ipo", "venture capital", "private equity", "investment banking", "wall street", "stock market", "nasdaq", "dow jones", "s&p 500", "earnings report", "quarterly results", "ceo", "cfo", "board of directors", "shareholder", "dividend", "market cap", "valuation", "revenue", "profit", "loss", "bankruptcy", "restructuring"],
-                "medium_priority": ["business", "company", "corporation", "enterprise", "industry", "market", "finance", "financial", "investment", "funding", "capital", "stock", "shares", "trading", "economy", "economic", "commercial", "corporate", "management", "executive", "strategy", "growth", "expansion", "partnership"],
+                "high_priority": ["merger", "acquisition", "ipo", "venture capital", "private equity", "investment banking", "wall street", "stock market", "nasdaq", "dow jones", "s&p 500", "earnings report", "quarterly results", "ceo", "cfo", "board of directors", "shareholder", "dividend", "market cap", "valuation", "revenue", "profit", "loss", "bankruptcy", "restructuring", "iron ore producer", "mining company", "commodity prices", "ore prices", "steel producer", "mining industry", "commodity trading"],
+                "medium_priority": ["business", "company", "corporation", "enterprise", "industry", "market", "finance", "financial", "investment", "funding", "capital", "stock", "shares", "trading", "economy", "economic", "commercial", "corporate", "management", "executive", "strategy", "growth", "expansion", "partnership", "iron ore", "mining", "commodity", "steel", "metals", "ore", "prices", "slashes", "cuts", "reduces"],
                 "low_priority": ["money", "cost", "price", "sales", "customer", "client", "service", "product", "brand", "marketing", "advertising", "retail", "consumer", "supply chain", "manufacturing", "production"]
             },
             "Science": {
@@ -38,12 +38,12 @@ class Categorizer:
             },
             "Entertainment": {
                 "high_priority": ["hollywood", "netflix", "disney", "warner bros", "universal studios", "paramount", "sony pictures", "marvel", "dc comics", "star wars", "game of thrones", "stranger things", "the office", "friends", "breaking bad", "oscar", "academy awards", "golden globe", "emmy", "grammy", "cannes", "sundance", "comic con"],
-                "medium_priority": ["movie", "film", "cinema", "tv show", "television", "series", "episode", "season", "actor", "actress", "director", "producer", "celebrity", "star", "music", "song", "album", "artist", "band", "concert", "festival", "theater", "broadway", "streaming", "youtube", "tiktok"],
-                "low_priority": ["entertainment", "show", "performance", "art", "culture", "media", "news", "magazine", "book", "novel", "story", "character", "plot", "scene", "audience", "fan", "review", "rating"]
+                "medium_priority": ["movie", "film", "cinema hall", "tv show", "television", "series", "episode", "season", "actor", "actress", "director", "film producer", "movie producer", "celebrity", "star", "music", "song", "album", "artist", "band", "concert", "festival", "theater", "broadway", "video streaming", "youtube", "tiktok"],
+                "low_priority": ["entertainment", "show", "performance", "art", "culture", "magazine", "book", "novel", "story", "character", "plot", "scene", "audience", "fan", "review", "rating"]
             },
             "Market": {
-                "high_priority": ["stock market", "bull market", "bear market", "market crash", "market rally", "trading halt", "circuit breaker", "volatility index", "vix", "futures", "options", "derivatives", "commodities", "forex", "currency", "exchange rate", "inflation", "deflation", "recession", "depression", "gdp", "unemployment", "interest rate", "federal reserve", "central bank"],
-                "medium_priority": ["market", "trading", "trader", "investor", "investment", "portfolio", "asset", "security", "bond", "equity", "debt", "yield", "return", "risk", "hedge", "fund", "etf", "mutual fund", "index", "benchmark"],
+                "high_priority": ["stock market", "bull market", "bear market", "market crash", "market rally", "trading halt", "circuit breaker", "volatility index", "vix", "futures", "options", "derivatives", "commodities", "forex", "currency", "exchange rate", "inflation", "deflation", "recession", "depression", "gdp", "unemployment", "interest rate", "federal reserve", "central bank", "commodity market", "iron ore prices", "steel prices", "metal prices", "ore trading", "commodity trading"],
+                "medium_priority": ["market", "trading", "trader", "investor", "investment", "portfolio", "asset", "security", "bond", "equity", "debt", "yield", "return", "risk", "hedge", "fund", "etf", "mutual fund", "index", "benchmark", "commodity", "iron ore", "steel", "metals", "ore", "mining stocks"],
                 "low_priority": ["buy", "sell", "price", "value", "worth", "cost", "expensive", "cheap", "high", "low", "up", "down", "gain", "loss", "profit", "margin", "volume", "liquidity"]
             },
             "World News": {
