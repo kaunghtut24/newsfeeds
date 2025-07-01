@@ -11,13 +11,13 @@ import json
 import subprocess
 from datetime import datetime
 
-from core.news_fetcher import NewsFetcher
-from core.multi_llm_summarizer import MultiLLMSummarizer
-from core.summarizer import Summarizer
-from core.data_manager import DataManager
-from core.reporting import ReportGenerator
-from core.categorizer import Categorizer
-from core.search_engine import NewsSearchEngine, SearchQuery
+from src.core.news_fetcher import NewsFetcher
+from src.core.multi_llm_summarizer import MultiLLMSummarizer
+from src.core.summarizer import Summarizer
+from src.core.data_manager import DataManager
+from src.core.reporting import ReportGenerator
+from src.core.categorizer import Categorizer
+from src.core.search_engine import NewsSearchEngine, SearchQuery
 from src.core.saved_searches import SavedSearchManager
 from src.core.content_enhancer import ContentEnhancer
 
@@ -49,8 +49,16 @@ news_fetcher = NewsFetcher(news_sources)
 # Initialize multi-LLM summarizer
 multi_llm_summarizer = MultiLLMSummarizer(config_file='llm_config.json')
 categorizer = Categorizer()
-data_manager = DataManager(base_path='/home/yuthar/Documents/news_feed_application/')
-report_generator = ReportGenerator(base_path='/home/yuthar/Documents/news_feed_application/')
+# Use current directory for data storage (cross-platform)
+current_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.dirname(os.path.dirname(current_dir))
+data_path = os.path.join(project_root, 'data')
+
+# Create data directory if it doesn't exist
+os.makedirs(data_path, exist_ok=True)
+
+data_manager = DataManager(base_path=data_path)
+report_generator = ReportGenerator(base_path=data_path)
 # Initialize search engine and saved searches
 search_engine = NewsSearchEngine()
 saved_search_manager = SavedSearchManager()

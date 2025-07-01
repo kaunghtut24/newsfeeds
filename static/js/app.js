@@ -779,16 +779,19 @@ class NewsFeedApp {
             const response = await fetch('/api/llm-providers');
             const data = await response.json();
 
-            if (data.success) {
+            if (data.success && data.providers) {
                 this.displayLLMProviders(data);
-                this.updateCostTracking(data.budget);
-                this.populateProviderSelectors(data.available_providers, data.available_models);
+                this.updateCostTracking(data.budget || {});
+                this.populateProviderSelectors(data.available_providers || [], data.available_models || {});
             } else {
-                this.showToast('Error loading LLM providers', 'error');
+                console.warn('LLM providers response:', data);
+                // Don't show error toast for missing providers - it's not critical
+                console.log('LLM providers not available or not configured');
             }
         } catch (error) {
             console.error('Error loading LLM providers:', error);
-            this.showToast('Error loading LLM providers', 'error');
+            // Don't show error toast - LLM providers are optional
+            console.log('LLM providers functionality not available');
         }
     }
 
@@ -1272,9 +1275,10 @@ class NewsFeedApp {
     }
 
     renderSearchResult(result) {
-        const article = result.article;
-        const score = (result.relevance_score * 100).toFixed(0);
-        const timeAgo = this.getTimeAgo(article.timestamp);
+        // Handle both direct article objects and wrapped results
+        const article = result.article || result;
+        const score = result.relevance_score ? (result.relevance_score * 100).toFixed(0) : '100';
+        const timeAgo = this.getTimeAgo(article.timestamp || article.published_date);
 
         return `
             <div class="search-result-item">
@@ -1293,15 +1297,13 @@ class NewsFeedApp {
                 </div>
 
                 <div class="search-result-content">
-                    ${result.highlighted_text.summary || result.highlighted_text.title || article.summary || 'No summary available'}
+                    ${article.summary || article.description || 'No summary available'}
                 </div>
 
-                ${result.matched_fields.length > 0 ? `
+                ${article.source ? `
                     <div class="search-result-matched-fields">
-                        <strong>Matched in:</strong>
-                        ${result.matched_fields.map(field =>
-                            `<span class="matched-field-tag">${field}</span>`
-                        ).join('')}
+                        <strong>Source:</strong>
+                        <span class="matched-field-tag">${article.source}</span>
                     </div>
                 ` : ''}
             </div>
