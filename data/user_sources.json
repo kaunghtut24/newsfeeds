@@ -1,6 +1,8 @@
 {
   "enabled_sources": [
-    "techcrunch",
-    "The Hindu"
+    "Businessline",
+    "The Hindu",
+    "hackernews",
+    "techcrunch"
   ]
 }
