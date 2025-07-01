@@ -100,7 +100,7 @@ class OllamaProvider(BaseLLMProvider):
         start_time = time.time()
 
         # Create prompt for summarization
-        prompt = f"""Read this news article and write a 2-3 sentence summary. Do not include any introductory phrases like "Here is" or "This is". Start directly with the facts:
+        prompt = f"""Read this news article and write a 2-3 sentence summary. Do not include any introductory phrases like "Here is" or "This is". Do not use thinking tags like <think> or show your reasoning process. Start directly with the facts:
 
 {text[:2000]}
 
@@ -129,7 +129,8 @@ Summary:"""
                 response_data = response.json()
                 content = response_data.get("response", "").strip()
 
-                # Clean up any remaining prefixes
+                # Clean up reasoning model output and prefixes
+                content = self._clean_reasoning_output(content)
                 content = self._clean_summary_prefixes(content)
 
                 # Estimate tokens (Ollama doesn't provide exact counts)
@@ -207,7 +208,7 @@ Summary:"""
             )
         
         # Prepare the prompt
-        prompt = f"""Read this news article and write a 2-3 sentence summary. Do not include any introductory phrases like "Here is" or "This is". Start directly with the facts:
+        prompt = f"""Read this news article and write a 2-3 sentence summary. Do not include any introductory phrases like "Here is" or "This is". Do not use thinking tags like <think> or show your reasoning process. Start directly with the facts:
 
 {text}
 
@@ -243,7 +244,11 @@ Summary:"""
                 if response.status == 200:
                     response_data = await response.json()
                     content = response_data.get("response", "").strip()
-                    
+
+                    # Clean up reasoning model output and prefixes
+                    content = self._clean_reasoning_output(content)
+                    content = self._clean_summary_prefixes(content)
+
                     # Estimate tokens (Ollama doesn't provide exact counts)
                     tokens_used = self._estimate_tokens(prompt + content)
                     
@@ -453,6 +458,103 @@ Summary:"""
         if self.session and not self.session.closed:
             await self.session.close()
     
+    def _clean_reasoning_output(self, content: str) -> str:
+        """Clean reasoning model output to extract the final answer"""
+        if not content:
+            return content
+
+        import re
+
+        # Handle models that use <think> tags (like qwen3)
+        if '<think>' in content:
+            if '</think>' in content:
+                # Extract content after </think> tag
+                parts = content.split('</think>')
+                if len(parts) > 1:
+                    content = parts[-1].strip()
+                else:
+                    # If no content after </think>, try to extract from before
+                    content = ""
+            else:
+                # If only <think> tag without closing, the output is incomplete
+                # This often happens with reasoning models that get cut off
+                print(f"⚠️ Incomplete reasoning output detected: {content[:100]}...")
+                return "Summary unavailable due to incomplete model response."
+
+        # Handle models that output thinking without tags
+        # Remove common reasoning patterns at the start
+        reasoning_start_patterns = [
+            r'^<think>.*?</think>\s*',  # Remove complete think blocks
+            r'^<think>.*',  # Remove incomplete think blocks
+            r'^(okay|alright|well|so|hmm),?\s+.*?(?=\.|$)',
+            r'^(let me|i need to|i should|i\'ll|i will)\s+.*?(?=\.|$)',
+            r'^(the user wants|they specified|they asked).*?(?=\.|$)',
+            r'^(thinking|considering|analyzing).*?(?=\.|$)',
+            r'^(let me read|let me think|let me consider).*?(?=\.|$)',
+        ]
+
+        for pattern in reasoning_start_patterns:
+            content = re.sub(pattern, '', content, flags=re.IGNORECASE | re.DOTALL)
+            content = content.strip()
+
+        # Handle line-by-line reasoning patterns
+        lines = content.split('\n')
+        cleaned_lines = []
+
+        # Skip lines that look like reasoning/thinking
+        reasoning_line_patterns = [
+            r'^(okay|alright|well|so|hmm),?\s+',
+            r'^(let me|i need to|i should|i\'ll|i will)\s+',
+            r'^(first|second|third|next|then|finally),?\s+',
+            r'^(the user wants|they specified|they asked)\s+',
+            r'^(thinking|considering|analyzing)\s+',
+            r'^(let me read|let me think|let me consider)\s+',
+            r'^\s*\*\s*(thinking|reasoning|analysis)',
+            r'^\s*\[thinking\]',
+            r'^\s*\(thinking\)',
+            r'^\s*<think>',
+            r'^\s*</think>',
+        ]
+
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+
+            # Skip lines that match reasoning patterns
+            is_reasoning = False
+            for pattern in reasoning_line_patterns:
+                if re.match(pattern, line, re.IGNORECASE):
+                    is_reasoning = True
+                    break
+
+            if not is_reasoning:
+                cleaned_lines.append(line)
+
+        if cleaned_lines:
+            content = ' '.join(cleaned_lines)
+
+        # Final cleanup for remaining reasoning artifacts
+        final_cleanup_patterns = [
+            r'^(okay|alright|well|so|hmm),?\s+',
+            r'^(let me|i need to|i should)\s+[^.]*\.\s*',
+            r'^(the user wants|they specified|they asked)[^.]*\.\s*',
+            r'^(first|second|third|next|then|finally),?\s+[^.]*\.\s*',
+            r'\s*<think>.*?</think>\s*',  # Remove any remaining think blocks
+            r'\s*<think>.*',  # Remove incomplete think blocks
+        ]
+
+        for pattern in final_cleanup_patterns:
+            content = re.sub(pattern, '', content, flags=re.IGNORECASE | re.DOTALL)
+
+        content = content.strip()
+
+        # If content is empty or too short after cleaning, return a fallback
+        if not content or len(content) < 10:
+            return "Summary unavailable due to reasoning model output issues."
+
+        return content
+
     def _clean_summary_prefixes(self, content: str) -> str:
         """Remove common AI-generated prefixes from summaries"""
         # List of common prefixes to remove
