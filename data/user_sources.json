@@ -1,8 +1,10 @@
 {
   "enabled_sources": [
     "Businessline",
+    "reddit_technology",
     "The Hindu",
     "hackernews",
+    "reddit_programming",
     "techcrunch"
   ]
 }

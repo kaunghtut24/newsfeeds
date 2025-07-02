@@ -72,6 +72,15 @@ news_fetcher = NewsFetcher(news_sources)
 data_manager = DataManager(base_path=data_dir)
 categorizer = Categorizer()
 
+# Initialize LLM summarizer first
+try:
+    multi_llm_summarizer = MultiLLMSummarizer(config_file='llm_config.json')
+    print("✅ LLM Summarizer initialized successfully")
+except Exception as e:
+    print(f"⚠️ Warning: LLM Summarizer initialization failed: {e}")
+    print("   AI summarization will be disabled, using fallback summaries")
+    multi_llm_summarizer = None
+
 # Initialize new AI features
 try:
     # Phase 1 features
@@ -84,7 +93,7 @@ try:
     relationship_mapper = ContentRelationshipMapper()
     trend_analyzer = TrendAnalyzer()
     ai_assistant = AINewsAssistant()
-    briefing_generator = SmartBriefingGenerator()
+    briefing_generator = SmartBriefingGenerator(llm_summarizer=multi_llm_summarizer)
 
     print("✅ Phase 1 & 2 AI features initialized successfully")
 except Exception as e:
@@ -97,15 +106,6 @@ except Exception as e:
     trend_analyzer = None
     ai_assistant = None
     briefing_generator = None
-
-# Initialize LLM summarizer with error handling
-try:
-    multi_llm_summarizer = MultiLLMSummarizer(config_file='llm_config.json')
-    print("✅ LLM Summarizer initialized successfully")
-except Exception as e:
-    print(f"⚠️ Warning: LLM Summarizer initialization failed: {e}")
-    print("   AI summarization will be disabled, using fallback summaries")
-    multi_llm_summarizer = None
 
 # Global processing state
 is_processing = False
@@ -581,27 +581,175 @@ def get_saved_searches():
 
 @app.route('/api/trending-analysis')
 def get_trending_analysis():
-    """API endpoint for trending analysis"""
-    return jsonify({
-        'trending_topics': [],
-        'sentiment_overview': {'positive': 0, 'neutral': 0, 'negative': 0}
-    })
+    """API endpoint for trending analysis with real data"""
+    try:
+        # Load news data
+        articles = data_manager.load_news_data()
+
+        if not articles:
+            return jsonify({
+                'success': False,
+                'error': 'No news data available'
+            })
+
+        # Use content enhancer for trending analysis if available
+        if 'content_enhancer' in globals():
+            trending_analysis = content_enhancer.get_trending_analysis(articles)
+        else:
+            # Basic trending analysis
+            from collections import Counter
+            import re
+
+            # Extract keywords from titles and summaries
+            all_text = []
+            for article in articles:
+                text = f"{article.get('title', '')} {article.get('summary', '')}"
+                # Simple keyword extraction
+                words = re.findall(r'\b[A-Za-z]{4,}\b', text.lower())
+                all_text.extend(words)
+
+            # Count word frequencies
+            word_counts = Counter(all_text)
+
+            # Create trending topics
+            trending_topics = []
+            for word, count in word_counts.most_common(10):
+                if count >= 2:  # Must appear at least twice
+                    trending_topics.append({
+                        'keyword': word.title(),
+                        'count': count,
+                        'trend_score': count / len(articles),
+                        'article_count': count
+                    })
+
+            # Basic sentiment overview
+            sentiment_counts = {'positive': 0, 'negative': 0, 'neutral': 0}
+            for article in articles:
+                sentiment = article.get('sentiment', 'neutral')
+                if sentiment in sentiment_counts:
+                    sentiment_counts[sentiment] += 1
+
+            trending_analysis = {
+                'trending_topics': trending_topics,
+                'trending_sources': [],
+                'sentiment_trends': sentiment_counts
+            }
+
+        return jsonify({
+            'success': True,
+            'trending_analysis': trending_analysis
+        })
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        })
 
 @app.route('/api/content-insights')
 def get_content_insights():
-    """API endpoint for content insights"""
+    """API endpoint for content insights with comprehensive analysis"""
     try:
+        # Load news data
         articles = data_manager.load_news_data()
+
+        if not articles:
+            return jsonify({
+                'success': False,
+                'error': 'No news data available'
+            })
+
+        # Calculate insights
+        total_articles = len(articles)
+
+        # Sentiment distribution
+        sentiment_counts = {'positive': 0, 'negative': 0, 'neutral': 0}
+        quality_scores = []
+        reading_times = []
+        sources = set()
+        categories = set()
+
+        for article in articles:
+            # Get sentiment from advanced sentiment analysis if available
+            if article.get('sentiment_analysis', {}).get('overall_sentiment'):
+                sentiment = article['sentiment_analysis']['overall_sentiment']
+            else:
+                sentiment = article.get('sentiment', 'neutral')
+
+            if sentiment in sentiment_counts:
+                sentiment_counts[sentiment] += 1
+
+            # Content quality score
+            if 'content_quality_score' in article:
+                quality_scores.append(article['content_quality_score'])
+            else:
+                # Calculate basic quality score
+                score = 0.5
+                if article.get('title') and len(article['title']) > 20:
+                    score += 0.2
+                if article.get('summary') and len(article['summary']) > 50:
+                    score += 0.2
+                if article.get('link'):
+                    score += 0.1
+                quality_scores.append(min(1.0, score))
+
+            # Reading time estimation
+            if 'estimated_reading_time' in article:
+                reading_times.append(article['estimated_reading_time'])
+            else:
+                # Estimate reading time (200 words per minute)
+                content_length = len(article.get('summary', '') + article.get('full_text', ''))
+                reading_time = max(1, content_length // 1000)
+                reading_times.append(reading_time)
+
+            # Sources and categories
+            if article.get('source'):
+                sources.add(article['source'])
+            if article.get('category'):
+                categories.add(article['category'])
+
+        # Calculate averages
+        avg_quality = sum(quality_scores) / len(quality_scores) if quality_scores else 0
+        avg_reading_time = sum(reading_times) / len(reading_times) if reading_times else 0
+
+        insights = {
+            'total_articles': total_articles,
+            'sentiment_distribution': {
+                'positive': sentiment_counts['positive'],
+                'negative': sentiment_counts['negative'],
+                'neutral': sentiment_counts['neutral'],
+                'positive_percentage': (sentiment_counts['positive'] / total_articles) * 100 if total_articles > 0 else 0,
+                'negative_percentage': (sentiment_counts['negative'] / total_articles) * 100 if total_articles > 0 else 0,
+                'neutral_percentage': (sentiment_counts['neutral'] / total_articles) * 100 if total_articles > 0 else 0
+            },
+            'content_quality': {
+                'average_score': avg_quality,
+                'high_quality_count': len([s for s in quality_scores if s > 0.7]),
+                'low_quality_count': len([s for s in quality_scores if s < 0.4])
+            },
+            'reading_metrics': {
+                'average_reading_time': avg_reading_time,
+                'total_reading_time': sum(reading_times),
+                'quick_reads': len([t for t in reading_times if t <= 2]),
+                'long_reads': len([t for t in reading_times if t > 5])
+            },
+            'diversity': {
+                'unique_sources': len(sources),
+                'unique_categories': len(categories),
+                'sources_list': sorted(list(sources)),
+                'categories_list': sorted(list(categories))
+            }
+        }
+
         return jsonify({
-            'total_articles': len(articles) if articles else 0,
-            'sources_count': len(news_sources),
-            'categories': {}
+            'success': True,
+            'insights': insights
         })
-    except:
+
+    except Exception as e:
         return jsonify({
-            'total_articles': 0,
-            'sources_count': len(news_sources),
-            'categories': {}
+            'success': False,
+            'error': str(e)
         })
 
 @app.route('/api/ollama-model', methods=['POST'])

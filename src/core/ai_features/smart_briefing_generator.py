@@ -12,6 +12,7 @@ from typing import Dict, List, Optional, Tuple, Any
 from datetime import datetime, timedelta
 from collections import defaultdict, Counter
 import logging
+import asyncio
 
 logger = logging.getLogger(__name__)
 
@@ -21,12 +22,13 @@ class SmartBriefingGenerator:
     Creates daily/weekly briefings, topic analyses, and executive reports.
     """
     
-    def __init__(self, config_path: Optional[str] = None):
+    def __init__(self, config_path: Optional[str] = None, llm_summarizer=None):
         """Initialize the smart briefing generator."""
         self.config = self._load_config(config_path)
         self.briefing_templates = self._build_briefing_templates()
         self.analysis_frameworks = self._build_analysis_frameworks()
         self.executive_formats = self._build_executive_formats()
+        self.llm_summarizer = llm_summarizer
         
     def _load_config(self, config_path: Optional[str]) -> Dict:
         """Load briefing generation configuration."""
@@ -480,25 +482,55 @@ class SmartBriefingGenerator:
         return "• " + "\n• ".join(recommendations)
 
     def _filter_articles_by_topic(self, topic: str, articles: List[Dict]) -> List[Dict]:
-        """Filter articles related to a specific topic."""
+        """Filter articles related to a specific topic using enhanced matching."""
         topic_articles = []
         topic_lower = topic.lower().replace('_', ' ')
 
+        # Define topic synonyms and related terms
+        topic_synonyms = {
+            'technology': ['tech', 'ai', 'artificial intelligence', 'software', 'digital', 'innovation', 'startup', 'app', 'platform', 'algorithm'],
+            'business': ['finance', 'economy', 'market', 'company', 'corporate', 'industry', 'trade', 'investment', 'revenue', 'profit'],
+            'politics': ['government', 'policy', 'election', 'political', 'minister', 'parliament', 'legislation', 'regulation'],
+            'health': ['medical', 'healthcare', 'medicine', 'hospital', 'doctor', 'patient', 'treatment', 'drug', 'vaccine'],
+            'environment': ['climate', 'green', 'renewable', 'energy', 'sustainability', 'carbon', 'pollution', 'conservation'],
+            'sports': ['game', 'match', 'player', 'team', 'championship', 'tournament', 'athlete', 'score'],
+            'entertainment': ['movie', 'film', 'music', 'celebrity', 'show', 'entertainment', 'actor', 'artist']
+        }
+
+        # Get related terms for the topic
+        related_terms = topic_synonyms.get(topic_lower, [topic_lower])
+        related_terms.append(topic_lower)
+
         for article in articles:
+            article_matched = False
+
             # Check smart categorization topics
             if article.get('smart_categorization', {}).get('topics'):
                 for topic_info in article['smart_categorization']['topics']:
                     if topic_info['topic'].lower().replace('_', ' ') == topic_lower:
                         topic_articles.append(article)
+                        article_matched = True
                         break
 
-            # Check title and content
+            if article_matched:
+                continue
+
+            # Check category
+            category = article.get('category', '').lower()
+            if category == topic_lower or topic_lower in category:
+                topic_articles.append(article)
+                continue
+
+            # Check title and content for related terms
             text = (article.get('title', '') + ' ' +
                    article.get('summary', '') + ' ' +
                    article.get('description', '')).lower()
 
-            if topic_lower in text:
-                topic_articles.append(article)
+            # Check for any related terms
+            for term in related_terms:
+                if term in text:
+                    topic_articles.append(article)
+                    break
 
         return topic_articles
 
@@ -801,10 +833,20 @@ class SmartBriefingGenerator:
         return f"{start_of_week.strftime('%B %d')} - {end_of_week.strftime('%B %d, %Y')}"
 
     def _generate_topic_overview(self, topic: str, articles: List[Dict]) -> str:
-        """Generate overview for a specific topic."""
+        """Generate overview for a specific topic using LLM if available."""
         if not articles:
             return f"No recent coverage found for {topic.replace('_', ' ')}."
 
+        # Try LLM-powered analysis first
+        if self.llm_summarizer:
+            try:
+                llm_overview = self._generate_llm_topic_overview(topic, articles)
+                if llm_overview:
+                    return llm_overview
+            except Exception as e:
+                logger.warning(f"LLM overview generation failed: {e}")
+
+        # Fallback to rule-based analysis
         overview_parts = []
         overview_parts.append(f"Analysis of {len(articles)} articles covering {topic.replace('_', ' ')}.")
 
@@ -907,7 +949,17 @@ class SmartBriefingGenerator:
         return sentiment_data
 
     def _generate_topic_future_outlook(self, topic: str, articles: List[Dict]) -> str:
-        """Generate future outlook for a topic."""
+        """Generate future outlook for a topic using LLM if available."""
+        # Try LLM-powered analysis first
+        if self.llm_summarizer:
+            try:
+                llm_outlook = self._generate_llm_future_outlook(topic, articles)
+                if llm_outlook and llm_outlook != "Future outlook analysis not available due to technical limitations.":
+                    return llm_outlook
+            except Exception as e:
+                logger.warning(f"LLM future outlook generation failed: {e}")
+
+        # Fallback to rule-based analysis
         outlook_parts = []
 
         # Analyze recent events
@@ -1236,3 +1288,124 @@ class SmartBriefingGenerator:
         content_parts.append(f"\n---\n*Executive Summary generated on {datetime.now().strftime('%Y-%m-%d %H:%M')}*\n")
 
         return "".join(content_parts)
+
+    # LLM-Powered Analysis Methods
+
+    def _generate_llm_topic_overview(self, topic: str, articles: List[Dict]) -> str:
+        """Generate topic overview using LLM analysis."""
+        if not self.llm_summarizer or not articles:
+            return ""
+
+        # Prepare article summaries for LLM
+        article_summaries = []
+        for i, article in enumerate(articles[:10]):  # Limit to 10 articles for performance
+            title = article.get('title', 'No title')
+            summary = article.get('summary', article.get('description', ''))[:200]  # Limit length
+            source = article.get('source', 'Unknown')
+            article_summaries.append(f"{i+1}. **{title}** ({source}): {summary}")
+
+        articles_text = "\n".join(article_summaries)
+
+        prompt = f"""Analyze the following news articles about "{topic}" and provide a comprehensive overview:
+
+{articles_text}
+
+Please provide:
+1. A brief overview of the main developments in {topic}
+2. Key trends and patterns you observe
+3. The overall sentiment and tone of coverage
+4. Notable sources and their perspectives
+
+Keep the analysis concise but insightful, focusing on the most important aspects."""
+
+        try:
+            # Use the LLM to generate analysis directly
+            import asyncio
+
+            # Create a new event loop if needed
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    # Run in thread if loop is already running
+                    import concurrent.futures
+                    with concurrent.futures.ThreadPoolExecutor() as executor:
+                        future = executor.submit(self._run_llm_analysis, prompt)
+                        response = future.result()
+                else:
+                    response = asyncio.run(self.llm_summarizer.summarize_text(prompt, preferred_provider="ollama", model="llama3:8b"))
+            except RuntimeError:
+                response = asyncio.run(self.llm_summarizer.summarize_text(prompt, preferred_provider="ollama", model="llama3:8b"))
+
+            if response and response.success:
+                return response.content
+
+        except Exception as e:
+            logger.error(f"LLM topic overview generation failed: {e}")
+
+        return ""
+
+    def _generate_llm_future_outlook(self, topic: str, articles: List[Dict]) -> str:
+        """Generate future outlook using LLM analysis."""
+        if not self.llm_summarizer or not articles:
+            return "Outlook analysis not available."
+
+        # Prepare recent articles for analysis
+        recent_articles = articles[:5]  # Focus on most recent
+        article_summaries = []
+
+        for article in recent_articles:
+            title = article.get('title', 'No title')
+            summary = article.get('summary', article.get('description', ''))[:150]
+            article_summaries.append(f"• {title}: {summary}")
+
+        articles_text = "\n".join(article_summaries)
+
+        prompt = f"""Based on these recent news articles about "{topic}", provide a future outlook and predictions:
+
+{articles_text}
+
+Please analyze:
+1. What trends are emerging in {topic}?
+2. What developments can we expect in the near future?
+3. What are the potential opportunities and challenges?
+4. What should stakeholders watch for?
+
+Provide a forward-looking analysis in 2-3 paragraphs."""
+
+        try:
+            # Use the LLM to generate future outlook directly
+            import asyncio
+
+            # Create a new event loop if needed
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    # Run in thread if loop is already running
+                    import concurrent.futures
+                    with concurrent.futures.ThreadPoolExecutor() as executor:
+                        future = executor.submit(self._run_llm_analysis, prompt)
+                        response = future.result()
+                else:
+                    response = asyncio.run(self.llm_summarizer.summarize_text(prompt, preferred_provider="ollama", model="llama3:8b"))
+            except RuntimeError:
+                response = asyncio.run(self.llm_summarizer.summarize_text(prompt, preferred_provider="ollama", model="llama3:8b"))
+
+            if response and response.success:
+                return response.content
+
+        except Exception as e:
+            logger.error(f"LLM future outlook generation failed: {e}")
+
+        return "Future outlook analysis not available due to technical limitations."
+
+    def _run_llm_analysis(self, prompt: str):
+        """Helper method to run LLM analysis in a new event loop"""
+        import asyncio
+        new_loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(new_loop)
+        try:
+            return new_loop.run_until_complete(
+                self.llm_summarizer.summarize_text(prompt, preferred_provider="ollama", model="llama3:8b")
+            )
+        finally:
+            new_loop.close()

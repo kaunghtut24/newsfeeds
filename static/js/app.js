@@ -2234,6 +2234,64 @@ class NewsFeedApp {
             .replace(/\*(.*?)\*/g, '<em>$1</em>');
     }
 
+    formatMarkdownContent(content) {
+        // Enhanced markdown formatting for briefings
+        if (!content || typeof content !== 'string') {
+            return String(content || '');
+        }
+
+        let formatted = content
+            // Escape HTML entities first
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+
+            // Headers (process from most specific to least specific)
+            .replace(/^### (.*$)/gm, '<h3 class="briefing-h3">$1</h3>')
+            .replace(/^## (.*$)/gm, '<h2 class="briefing-h2">$1</h2>')
+            .replace(/^# (.*$)/gm, '<h1 class="briefing-h1">$1</h1>')
+
+            // Bold and italic
+            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+            .replace(/\*(.*?)\*/g, '<em>$1</em>')
+
+            // Lists - handle bullet points and numbered lists
+            .replace(/^[•\-\*] (.*$)/gm, '<li class="briefing-bullet">$1</li>')
+            .replace(/^\d+\. (.*$)/gm, '<li class="briefing-numbered">$1</li>');
+
+        // Wrap consecutive list items in proper list tags
+        formatted = formatted.replace(
+            /(<li class="briefing-bullet">.*?<\/li>)(\s*<li class="briefing-bullet">.*?<\/li>)*/gs,
+            (match) => `<ul class="briefing-list">${match}</ul>`
+        );
+
+        formatted = formatted.replace(
+            /(<li class="briefing-numbered">.*?<\/li>)(\s*<li class="briefing-numbered">.*?<\/li>)*/gs,
+            (match) => `<ol class="briefing-list">${match}</ol>`
+        );
+
+        // Handle paragraphs and line breaks
+        formatted = formatted
+            // Split into lines and process
+            .split('\n')
+            .map(line => {
+                line = line.trim();
+                if (!line) return '';
+
+                // Skip lines that are already HTML elements
+                if (line.match(/^<(h[1-6]|ul|ol|li)/)) {
+                    return line;
+                }
+
+                // Wrap regular text in paragraph tags
+                return `<p class="briefing-paragraph">${line}</p>`;
+            })
+            .filter(line => line) // Remove empty lines
+            .join('\n');
+
+        return formatted;
+    }
+
     // Smart Categorization Methods
     async runSmartCategorization() {
         const btn = document.getElementById('runCategorizationBtn');
@@ -2359,13 +2417,27 @@ class NewsFeedApp {
         let html = '<div class="recommendations-list">';
 
         recommendations.forEach(rec => {
+            // Extract data from the correct structure
+            const article = rec.article || rec;
+            const title = article.title || 'No title available';
+            const source = article.source || 'Unknown source';
+            const score = rec.score || 0;
+            const reasons = rec.reasons || ['Recommended for you'];
+            const reason = Array.isArray(reasons) ? reasons.join(', ') : reasons;
+            const summary = article.summary || article.description || '';
+            const link = article.link || '#';
+
             html += `
                 <div class="recommendation-item">
-                    <h5 class="recommendation-title">${rec.title}</h5>
-                    <p class="recommendation-reason">${rec.reason}</p>
+                    <h5 class="recommendation-title">
+                        <a href="${link}" target="_blank" rel="noopener noreferrer">${title}</a>
+                    </h5>
+                    <p class="recommendation-summary">${summary.substring(0, 150)}${summary.length > 150 ? '...' : ''}</p>
+                    <p class="recommendation-reason">💡 ${reason}</p>
                     <div class="recommendation-meta">
-                        <span class="recommendation-score">Score: ${Math.round(rec.score * 100)}%</span>
-                        <span class="recommendation-source">${rec.source}</span>
+                        <span class="recommendation-score">Score: ${Math.round(score * 100)}%</span>
+                        <span class="recommendation-source">📰 ${source}</span>
+                        <span class="recommendation-category">${article.category || 'General'}</span>
                     </div>
                 </div>
             `;
@@ -2469,27 +2541,58 @@ class NewsFeedApp {
         `;
 
         if (typeof briefing === 'string') {
-            html += `<p>${briefing}</p>`;
+            // Format as markdown if it contains markdown syntax
+            if (briefing.includes('#') || briefing.includes('**') || briefing.includes('•')) {
+                html += `<div class="briefing-markdown">${this.formatMarkdownContent(briefing)}</div>`;
+            } else {
+                html += `<p class="briefing-paragraph">${briefing}</p>`;
+            }
         } else if (briefing.content) {
-            html += `<div class="briefing-text">${briefing.content}</div>`;
+            // Format the content as markdown
+            if (typeof briefing.content === 'string' &&
+                (briefing.content.includes('#') || briefing.content.includes('**') || briefing.content.includes('•'))) {
+                html += `<div class="briefing-markdown">${this.formatMarkdownContent(briefing.content)}</div>`;
+            } else {
+                html += `<div class="briefing-text">${briefing.content}</div>`;
+            }
         } else {
             // Handle structured briefing data
             if (briefing.analysis) {
                 html += `<div class="briefing-section">
                     <h5>Analysis</h5>
-                    <p>${briefing.analysis}</p>
+                    <div class="briefing-markdown">${this.formatMarkdownContent(briefing.analysis)}</div>
                 </div>`;
             }
 
             if (briefing.key_points) {
                 html += `<div class="briefing-section">
                     <h5>Key Points</h5>
-                    <ul>`;
+                    <ul class="briefing-list">`;
                 briefing.key_points.forEach(point => {
-                    html += `<li>${point}</li>`;
+                    html += `<li class="briefing-bullet">${point}</li>`;
                 });
                 html += `</ul></div>`;
             }
+
+            if (briefing.recommendations) {
+                html += `<div class="briefing-section">
+                    <h5>Recommendations</h5>
+                    <div class="briefing-markdown">${this.formatMarkdownContent(briefing.recommendations)}</div>
+                </div>`;
+            }
+        }
+
+        // Add metadata if available
+        if (briefing.metadata) {
+            html += `
+                <div class="briefing-metadata">
+                    <div class="metadata-grid">
+                        ${briefing.metadata.articles_analyzed ? `<span class="metadata-item">📰 ${briefing.metadata.articles_analyzed} articles analyzed</span>` : ''}
+                        ${briefing.metadata.topics_covered ? `<span class="metadata-item">🏷️ ${briefing.metadata.topics_covered} topics covered</span>` : ''}
+                        ${briefing.date ? `<span class="metadata-item">📅 ${briefing.date}</span>` : ''}
+                    </div>
+                </div>
+            `;
         }
 
         html += `
