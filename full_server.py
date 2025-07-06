@@ -9,6 +9,7 @@ Complete server with working LLM integration for AI-powered news summarization.
 import sys
 import os
 import json
+import time
 import threading
 import logging
 from datetime import datetime
@@ -46,6 +47,11 @@ from core.user_management import UserManager, User, UserRole, UserStatus
 from core.auth import init_auth, get_current_user, login_required, admin_required, user_owns_resource
 from core.rbac import AccessControl, Permission, get_permission_checker
 
+# Import enhanced systems
+from core.admin_settings import AdminSettingsManager
+from core.enhanced_user_sources import EnhancedUserSourceManager
+from core.performance_optimizer import performance_optimizer
+
 # Initialize Flask app
 app = Flask(__name__)
 app.secret_key = 'newsfeeds_secret_key_2024'  # In production, use environment variable
@@ -74,15 +80,21 @@ ollama_model = config.get("ollama_model", "llama3:8b")
 data_dir = os.path.join(os.getcwd(), 'data')
 os.makedirs(data_dir, exist_ok=True)
 
-# Initialize components
-news_fetcher = NewsFetcher(news_sources)
+# Initialize user management system first
+user_manager = UserManager(data_dir)
+auth_manager = init_auth(user_manager)
+
+# Initialize enhanced systems
+admin_settings_manager = AdminSettingsManager(data_dir)
+enhanced_user_sources = EnhancedUserSourceManager(data_dir, admin_settings_manager)
+
+# Initialize components with admin settings
+admin_settings = admin_settings_manager.get_all_settings()
+max_articles_per_source = admin_settings.get('user_limits', {}).get('max_articles_per_source', 5)
+news_fetcher = NewsFetcher(news_sources, max_articles_per_source=max_articles_per_source)
 data_manager = DataManager(base_path=data_dir)
 categorizer = Categorizer()
 report_generator = ReportGenerator()
-
-# Initialize user management system
-user_manager = UserManager(data_dir)
-auth_manager = init_auth(user_manager)
 
 # Initialize LLM summarizer first
 try:
@@ -223,45 +235,106 @@ def health_check():
 @app.route('/api/news')
 @login_required
 def get_news():
-    """API endpoint to get news articles"""
+    """API endpoint to get news articles - filtered by user preferences"""
     try:
-        articles = data_manager.load_news_data()
+        current_user = get_current_user()
+
+        # Load all global news articles
+        all_articles = data_manager.load_news_data()
+
+        if current_user.is_admin():
+            # Admin sees all global news
+            articles = all_articles
+            user_specific = False
+        else:
+            # Regular users see filtered news based on their enhanced source preferences
+            user_source_prefs = enhanced_user_sources.get_user_source_preferences(current_user.user_id)
+
+            if not user_source_prefs:
+                return jsonify({
+                    'success': True,
+                    'message': 'No news sources selected. Visit your dashboard to select sources.',
+                    'news': [],
+                    'articles': [],
+                    'count': 0,
+                    'user_specific': True,
+                    'guidance': {
+                        'title': 'Get Started with Personalized News',
+                        'steps': [
+                            '1. Visit your Dashboard',
+                            '2. Click "Select Sources" button',
+                            '3. Choose up to 3 news sources',
+                            '4. Return here to see your personalized feed'
+                        ]
+                    }
+                })
+
+            # Filter articles by user's preferred sources
+            articles = []
+            for article in all_articles:
+                article_source = article.get('source', '').strip()
+                # Check if article source matches any of user's preferred sources
+                for pref_source in user_source_prefs:
+                    if article_source.lower() == pref_source.lower():
+                        article['user_filtered'] = True
+                        articles.append(article)
+                        break
+
+            user_specific = True
+
         if articles:
             return jsonify({
                 'success': True,
                 'news': articles,  # Frontend expects 'news'
                 'articles': articles,  # Keep for compatibility
-                'count': len(articles)
+                'count': len(articles),
+                'user_specific': user_specific,
+                'total_available': len(all_articles) if not current_user.is_admin() else len(articles)
             })
         else:
+            message = 'No news articles found'
+            if not current_user.is_admin():
+                message = 'No news articles found from your selected sources. Try selecting different sources in your dashboard.'
+
             return jsonify({
-                'success': False,
-                'message': 'No news data available'
+                'success': True,
+                'message': message,
+                'news': [],
+                'articles': [],
+                'count': 0,
+                'user_specific': user_specific
             })
     except Exception as e:
+        logger.error(f"Error loading news: {e}")
         return jsonify({
             'success': False,
-            'message': f'Error loading news: {str(e)}'
+            'error': 'Failed to load news articles',
+            'news': [],
+            'articles': [],
+            'count': 0
         })
 
 @app.route('/api/sources')
+@login_required
 def get_sources():
-    """API endpoint to get all available news sources"""
+    """API endpoint to get global news sources with user preferences"""
     try:
-        # Load user preferences for enabled sources
-        user_sources_file = os.path.join(data_dir, 'user_sources.json')
-        enabled_sources = set()
+        current_user = get_current_user()
 
-        if os.path.exists(user_sources_file):
-            with open(user_sources_file, 'r', encoding='utf-8') as f:
-                user_prefs = json.load(f)
-                enabled_sources = set(user_prefs.get('enabled_sources', []))
-        else:
-            # Default: all sources enabled
-            enabled_sources = set(news_sources.keys())
+        # Get user's source preferences (empty for admin)
+        user_source_prefs = []
+        if not current_user.is_admin():
+            user_source_prefs = enhanced_user_sources.get_user_source_preferences(current_user.user_id)
 
+        # Get global source states (admin enabled/disabled settings)
+        global_source_states = enhanced_user_sources.get_global_source_states()
+
+        # Build sources info from global configuration
         sources_info = []
         for source_name, source_config in news_sources.items():
+            # Check if this source is globally enabled by admin
+            globally_enabled = global_source_states.get(source_name, True)
+
             # Handle both string URLs and dict configurations
             if isinstance(source_config, str):
                 # Simple URL format
@@ -270,8 +343,10 @@ def get_sources():
                     'url': source_config,
                     'type': 'rss',
                     'description': f'RSS feed from {source_name}',
-                    'enabled': source_name in enabled_sources,
-                    'category': 'General'
+                    'category': 'General',
+                    'enabled_globally': globally_enabled,  # Use actual admin setting
+                    'user_selected': source_name in user_source_prefs,  # User preference
+                    'can_select': not current_user.is_admin()  # Only regular users can select
                 }
             else:
                 # Dict format with detailed configuration
@@ -280,8 +355,10 @@ def get_sources():
                     'url': source_config.get('url', ''),
                     'type': source_config.get('type', 'rss'),
                     'description': source_config.get('description', f'RSS feed from {source_name}'),
-                    'enabled': source_name in enabled_sources,
-                    'category': source_config.get('category', 'General')
+                    'category': source_config.get('category', 'General'),
+                    'enabled_globally': globally_enabled,  # Use actual admin setting
+                    'user_selected': source_name in user_source_prefs,  # User preference
+                    'can_select': not current_user.is_admin()  # Only regular users can select
                 }
             sources_info.append(source_info)
 
@@ -289,7 +366,10 @@ def get_sources():
             'success': True,
             'sources': sources_info,
             'total_sources': len(sources_info),
-            'enabled_sources': len(enabled_sources)
+            'user_selected_count': len(user_source_prefs),
+            'max_user_sources': 3,
+            'is_admin': current_user.is_admin(),
+            'architecture': 'global_fetch_user_filter'
         })
 
     except Exception as e:
@@ -408,9 +488,12 @@ def delete_source():
         })
 
 @app.route('/api/sources/toggle', methods=['POST'])
+@login_required
+@admin_required
 def toggle_source():
-    """API endpoint to enable/disable a news source"""
+    """API endpoint to enable/disable a global news source (Admin only)"""
     try:
+        current_user = get_current_user()
         data = request.get_json()
         source_name = data.get('source_name')
         enabled = data.get('enabled', True)
@@ -421,35 +504,25 @@ def toggle_source():
                 'error': 'Invalid source name'
             })
 
-        # Load current user preferences
-        user_sources_file = os.path.join(data_dir, 'user_sources.json')
-        user_prefs = {'enabled_sources': list(news_sources.keys())}  # Default: all enabled
+        # For admin: toggle global source availability
+        # This affects which sources are available in the global pool for users to select
+        result = enhanced_user_sources.toggle_global_source_availability(source_name, enabled)
 
-        if os.path.exists(user_sources_file):
-            with open(user_sources_file, 'r', encoding='utf-8') as f:
-                user_prefs = json.load(f)
-
-        enabled_sources = set(user_prefs.get('enabled_sources', []))
-
-        # Toggle the source
-        if enabled:
-            enabled_sources.add(source_name)
+        if result.get('success'):
+            return jsonify({
+                'success': True,
+                'source_name': source_name,
+                'enabled': enabled,
+                'message': f'Global source {source_name} {"enabled" if enabled else "disabled"} successfully'
+            })
         else:
-            enabled_sources.discard(source_name)
-
-        # Save updated preferences
-        user_prefs['enabled_sources'] = list(enabled_sources)
-        with open(user_sources_file, 'w', encoding='utf-8') as f:
-            json.dump(user_prefs, f, indent=2, ensure_ascii=False)
-
-        return jsonify({
-            'success': True,
-            'source_name': source_name,
-            'enabled': enabled,
-            'total_enabled': len(enabled_sources)
-        })
+            return jsonify({
+                'success': False,
+                'error': result.get('error', 'Failed to toggle source')
+            })
 
     except Exception as e:
+        logger.error(f"Toggle source error: {e}")
         return jsonify({
             'success': False,
             'error': f'Failed to toggle source: {str(e)}'
@@ -460,31 +533,107 @@ def toggle_source():
 def fetch_news():
     """API endpoint to fetch and summarize news with LLM"""
     global is_processing, processing_status, processing_stats
-    
+
     if is_processing:
         return jsonify({
             'success': False,
             'message': 'Already processing news'
         })
-    
-    def process_news_with_llm():
+
+    # Get current user information before starting background thread
+    current_user = get_current_user()
+
+    def process_news_with_llm(user_info):
         global is_processing, processing_status, processing_stats
-        
+
         try:
             is_processing = True
             processing_status = "🚀 Starting news processing with AI summarization..."
-            
-            # Load user preferences for enabled sources
-            user_sources_file = os.path.join(data_dir, 'user_sources.json')
-            enabled_sources = set(news_sources.keys())  # Default: all enabled
 
-            if os.path.exists(user_sources_file):
-                with open(user_sources_file, 'r', encoding='utf-8') as f:
-                    user_prefs = json.load(f)
-                    enabled_sources = set(user_prefs.get('enabled_sources', list(news_sources.keys())))
+            # Use passed user information instead of get_current_user()
+            # current_user = get_current_user()  # This causes the request context error!
 
-            # Filter sources based on user preferences
-            sources = [(name, config) for name, config in news_sources.items() if name in enabled_sources]
+            # Get global source states (admin enabled/disabled settings)
+            global_source_states = enhanced_user_sources.get_global_source_states()
+            globally_enabled_sources = {name for name, enabled in global_source_states.items() if enabled}
+
+            # Debug logging
+            logger.info(f"🔍 Debug - Global source states: {global_source_states}")
+            logger.info(f"🔍 Debug - Globally enabled sources: {globally_enabled_sources}")
+            logger.info(f"🔍 Debug - Available news sources: {list(news_sources.keys())}")
+
+            if user_info.is_admin():
+                # Admin fetches from globally enabled sources only
+                enabled_sources = globally_enabled_sources
+                disabled_count = len(news_sources) - len(enabled_sources)
+                if disabled_count > 0:
+                    processing_status = f"🔧 Admin fetching from {len(enabled_sources)} enabled sources ({disabled_count} disabled)..."
+                else:
+                    processing_status = f"🔧 Admin fetching from all {len(enabled_sources)} global sources..."
+            else:
+                # Regular users fetch from their selected sources (both global and custom)
+                user_source_prefs = enhanced_user_sources.get_user_source_preferences(user_info.user_id)
+
+                # Debug logging
+                logger.info(f"🔍 Debug - User {user_info.user_id} source preferences: {user_source_prefs}")
+
+                if not user_source_prefs:
+                    processing_status = "❌ No sources selected. Please configure sources in dashboard."
+                    return
+
+                # Get user's actual sources (includes both global and custom)
+                user_sources = enhanced_user_sources.get_user_sources(user_info.user_id)
+
+                # Debug logging
+                logger.info(f"🔍 Debug - User sources from enhanced system: {[s.name for s in user_sources]}")
+
+                # Build enabled sources list from user's actual sources
+                enabled_sources = set()
+                sources_to_fetch = []
+
+                for source_name in user_source_prefs:
+                    logger.info(f"🔍 Debug - Processing preference: {source_name}")
+                    # Find the source in user's sources (handles both global and custom)
+                    found_in_user_sources = False
+                    for user_source in user_sources:
+                        if user_source.name == source_name and user_source.enabled:
+                            logger.info(f"🔍 Debug - Found {source_name} in user sources: {user_source.url}")
+                            enabled_sources.add(source_name)
+                            sources_to_fetch.append((source_name, user_source.url))
+                            found_in_user_sources = True
+                            break
+
+                    if not found_in_user_sources:
+                        logger.info(f"🔍 Debug - {source_name} not found in user sources, checking global...")
+                        # Fallback: check if it's in global sources and globally enabled
+                        if source_name in news_sources and source_name in globally_enabled_sources:
+                            enabled_sources.add(source_name)
+                            source_config = news_sources[source_name]
+                            source_url = source_config if isinstance(source_config, str) else source_config.get('url', '')
+                            if source_url:
+                                sources_to_fetch.append((source_name, source_url))
+                                logger.info(f"🔍 Debug - Added {source_name} from global sources: {source_url}")
+
+                # Debug logging
+                logger.info(f"🔍 Debug - Final enabled sources for user: {enabled_sources}")
+                logger.info(f"🔍 Debug - Sources to fetch: {[name for name, _ in sources_to_fetch]}")
+
+                processing_status = f"👤 User fetching from {len(enabled_sources)} selected sources (including custom sources)..."
+
+                # If no enabled sources, provide helpful message
+                if not enabled_sources:
+                    processing_status = "❌ No valid sources available for fetching."
+                    return
+
+            # For admin, build sources list from global configuration
+            if user_info.is_admin():
+                sources = [(name, config) for name, config in news_sources.items() if name in enabled_sources]
+            else:
+                # For users, use the sources_to_fetch list we built above
+                sources = sources_to_fetch
+
+            # Debug logging
+            logger.info(f"🔍 Debug - Final sources to fetch from: {[name for name, _ in sources]}")
 
             # Reset stats
             processing_stats.update({
@@ -501,11 +650,24 @@ def fetch_news():
             all_processed_news = []
             
             # Process each source
-            for source_idx, (source_name, source_url) in enumerate(sources, 1):
+            for source_idx, (source_name, source_config) in enumerate(sources, 1):
                 try:
                     processing_stats["current_source"] = source_name
                     processing_status = f"📡 Fetching from {source_name} ({source_idx}/{len(sources)})..."
-                    
+
+                    # Handle both string URLs and dict configurations
+                    if isinstance(source_config, str):
+                        source_url = source_config
+                    elif isinstance(source_config, dict):
+                        source_url = source_config.get('url', '')
+                    else:
+                        logger.error(f"Invalid source configuration for {source_name}: {source_config}")
+                        continue
+
+                    if not source_url:
+                        logger.error(f"No URL found for source {source_name}")
+                        continue
+
                     # Fetch news from source
                     if "hackernews" in source_name.lower():
                         source_news = news_fetcher.fetch_news_from_api(source_name)
@@ -542,25 +704,45 @@ def fetch_news():
                             except Exception as e:
                                 logger.warning(f"Sentiment analysis failed: {e}")
                     
-                    # AI Summarization with batching
-                    batch_size = 3  # Smaller batches for better performance
+                    # AI Summarization with dynamic performance optimization
+                    start_time = time.time()
+
+                    # Get optimized parameters based on current load
+                    estimated_articles = len(source_news)
+                    total_estimated_articles = sum(len(sources) for sources in [source_news])  # Could be expanded for multi-source estimation
+                    perf_params = performance_optimizer.get_processing_parameters(
+                        num_sources=len(sources),  # Total sources being processed
+                        estimated_articles=total_estimated_articles,
+                        user_preference=None  # Could be user configurable
+                    )
+
+                    batch_size = perf_params["batch_size"]
+                    batch_delay = perf_params["batch_delay"]
+                    max_text_length = perf_params["max_text_length"]
+                    max_retries = perf_params["max_retries"]
+
+                    logger.info(f"🚀 Using {perf_params['profile_name']} profile: batch_size={batch_size}, delay={batch_delay}s")
+
                     source_summarized = []
-                    
+
                     for batch_start in range(0, len(source_news), batch_size):
                         batch_end = min(batch_start + batch_size, len(source_news))
                         batch = source_news[batch_start:batch_end]
                         current_batch = batch_start // batch_size + 1
                         total_batches = (len(source_news) + batch_size - 1) // batch_size
-                        
+
                         processing_stats["current_batch"] = current_batch
-                        processing_status = f"🤖 AI processing batch {current_batch}/{total_batches} from {source_name}..."
-                        
-                        # Summarize batch with AI
+                        processing_status = f"🤖 AI processing batch {current_batch}/{total_batches} from {source_name} ({perf_params['profile_name']} mode)..."
+
+                        # Summarize batch with AI using optimized parameters
                         try:
                             if multi_llm_summarizer is not None:
                                 batch_summarized = multi_llm_summarizer.summarize_news_items(
                                     batch,
-                                    model=ollama_model
+                                    model=ollama_model,
+                                    max_text_length=max_text_length,
+                                    batch_delay=batch_delay,
+                                    max_retries=max_retries
                                 )
                                 source_summarized.extend(batch_summarized)
                                 processing_stats["processed_articles"] += len(batch_summarized)
@@ -582,7 +764,12 @@ def fetch_news():
                     
                     all_processed_news.extend(source_summarized)
                     processing_stats["completed_sources"] += 1
-                    processing_status = f"✅ Completed {source_name}: {len(source_summarized)} articles with AI summaries"
+
+                    # Update performance statistics
+                    source_processing_time = time.time() - start_time
+                    performance_optimizer.update_performance_stats(source_processing_time, len(source_summarized))
+
+                    processing_status = f"✅ Completed {source_name}: {len(source_summarized)} articles with AI summaries ({source_processing_time:.1f}s)"
                     
                 except Exception as e:
                     processing_stats["completed_sources"] += 1
@@ -604,8 +791,8 @@ def fetch_news():
         finally:
             is_processing = False
     
-    # Start background processing
-    thread = threading.Thread(target=process_news_with_llm)
+    # Start background processing with user info
+    thread = threading.Thread(target=process_news_with_llm, args=(current_user,))
     thread.daemon = True
     thread.start()
     
@@ -687,16 +874,55 @@ def get_saved_searches():
 @app.route('/api/trending-analysis')
 @login_required
 def get_trending_analysis():
-    """API endpoint for trending analysis with real data"""
+    """API endpoint for trending analysis with real data - filtered by user's sources"""
     try:
-        # Load news data
-        articles = data_manager.load_news_data()
+        current_user = get_current_user()
 
-        if not articles:
+        # Load all news data
+        all_articles = data_manager.load_news_data()
+
+        if not all_articles:
             return jsonify({
                 'success': False,
                 'error': 'No news data available'
             })
+
+        # Filter articles by user's selected sources
+        if current_user.is_admin():
+            # Admin sees trending analysis from all sources
+            articles = all_articles
+        else:
+            # Regular users see trending analysis only from their selected sources
+            user_source_prefs = enhanced_user_sources.get_user_source_preferences(current_user.user_id)
+
+            if not user_source_prefs:
+                return jsonify({
+                    'success': True,
+                    'trending_topics': [],
+                    'trending_keywords': [],
+                    'source_distribution': {},
+                    'message': 'No sources selected. Visit your dashboard to select sources.',
+                    'user_specific': True
+                })
+
+            # Filter articles by user's preferred sources
+            articles = []
+            for article in all_articles:
+                article_source = article.get('source', '').strip()
+                for pref_source in user_source_prefs:
+                    if article_source.lower() == pref_source.lower():
+                        articles.append(article)
+                        break
+
+            if not articles:
+                return jsonify({
+                    'success': True,
+                    'trending_topics': [],
+                    'trending_keywords': [],
+                    'source_distribution': {},
+                    'message': f'No articles found from your selected sources: {", ".join(user_source_prefs)}',
+                    'user_specific': True
+                })
 
         # Use content enhancer for trending analysis if available
         if 'content_enhancer' in globals():
@@ -826,16 +1052,61 @@ def get_trending_analysis():
 @app.route('/api/content-insights')
 @login_required
 def get_content_insights():
-    """API endpoint for content insights with comprehensive analysis"""
+    """API endpoint for content insights with comprehensive analysis - filtered by user's sources"""
     try:
-        # Load news data
-        articles = data_manager.load_news_data()
+        current_user = get_current_user()
 
-        if not articles:
+        # Load all news data
+        all_articles = data_manager.load_news_data()
+
+        if not all_articles:
             return jsonify({
                 'success': False,
                 'error': 'No news data available'
             })
+
+        # Filter articles by user's selected sources
+        if current_user.is_admin():
+            # Admin sees insights from all sources
+            articles = all_articles
+        else:
+            # Regular users see insights only from their selected sources
+            user_source_prefs = enhanced_user_sources.get_user_source_preferences(current_user.user_id)
+
+            if not user_source_prefs:
+                return jsonify({
+                    'success': True,
+                    'total_articles': 0,
+                    'sentiment_distribution': {'positive': 0, 'negative': 0, 'neutral': 0},
+                    'quality_metrics': {'average_score': 0, 'high_quality_count': 0},
+                    'reading_metrics': {'average_time': 0, 'total_time': 0},
+                    'category_distribution': {},
+                    'source_performance': {},
+                    'message': 'No sources selected. Visit your dashboard to select sources.',
+                    'user_specific': True
+                })
+
+            # Filter articles by user's preferred sources
+            articles = []
+            for article in all_articles:
+                article_source = article.get('source', '').strip()
+                for pref_source in user_source_prefs:
+                    if article_source.lower() == pref_source.lower():
+                        articles.append(article)
+                        break
+
+            if not articles:
+                return jsonify({
+                    'success': True,
+                    'total_articles': 0,
+                    'sentiment_distribution': {'positive': 0, 'negative': 0, 'neutral': 0},
+                    'quality_metrics': {'average_score': 0, 'high_quality_count': 0},
+                    'reading_metrics': {'average_time': 0, 'total_time': 0},
+                    'category_distribution': {},
+                    'source_performance': {},
+                    'message': f'No articles found from your selected sources: {", ".join(user_source_prefs)}',
+                    'user_specific': True
+                })
 
         # Calculate insights
         total_articles = len(articles)
@@ -1263,17 +1534,49 @@ def get_content_recommendations():
                 'error': 'Content recommender not available'
             })
 
-        user_id = request.args.get('user_id', 'default_user')
+        current_user = get_current_user()
+        user_id = request.args.get('user_id', current_user.user_id)
         limit = int(request.args.get('limit', 10))
 
-        # Load articles
-        articles = data_manager.load_news_data()
-        if not articles:
+        # Load all articles
+        all_articles = data_manager.load_news_data()
+        if not all_articles:
             return jsonify({
                 'success': True,
                 'recommendations': [],
                 'message': 'No articles available for recommendations'
             })
+
+        # Filter articles by user's selected sources
+        if current_user.is_admin():
+            articles = all_articles
+        else:
+            user_source_prefs = enhanced_user_sources.get_user_source_preferences(current_user.user_id)
+
+            if not user_source_prefs:
+                return jsonify({
+                    'success': True,
+                    'recommendations': [],
+                    'message': 'No sources selected. Visit your dashboard to select sources.',
+                    'user_specific': True
+                })
+
+            # Filter articles by user's preferred sources
+            articles = []
+            for article in all_articles:
+                article_source = article.get('source', '').strip()
+                for pref_source in user_source_prefs:
+                    if article_source.lower() == pref_source.lower():
+                        articles.append(article)
+                        break
+
+            if not articles:
+                return jsonify({
+                    'success': True,
+                    'recommendations': [],
+                    'message': f'No articles found from your selected sources: {", ".join(user_source_prefs)}',
+                    'user_specific': True
+                })
 
         # Add IDs to articles if not present
         for i, article in enumerate(articles):
@@ -1675,20 +1978,52 @@ def generate_daily_briefing():
                 'error': 'Briefing generator not available'
             })
 
+        current_user = get_current_user()
         user_preferences = request.args.get('preferences', '{}')
         try:
             user_preferences = json.loads(user_preferences) if user_preferences != '{}' else None
         except:
             user_preferences = None
 
-        # Load articles
-        articles = data_manager.load_news_data()
-        if not articles:
+        # Load all articles
+        all_articles = data_manager.load_news_data()
+        if not all_articles:
             return jsonify({
                 'success': True,
                 'briefing': {'content': 'No articles available for briefing'},
                 'message': 'No articles available'
             })
+
+        # Filter articles by user's selected sources
+        if current_user.is_admin():
+            articles = all_articles
+        else:
+            user_source_prefs = enhanced_user_sources.get_user_source_preferences(current_user.user_id)
+
+            if not user_source_prefs:
+                return jsonify({
+                    'success': True,
+                    'briefing': {'content': 'No sources selected. Please visit your dashboard to select news sources for your personalized daily briefing.'},
+                    'message': 'No sources selected',
+                    'user_specific': True
+                })
+
+            # Filter articles by user's preferred sources
+            articles = []
+            for article in all_articles:
+                article_source = article.get('source', '').strip()
+                for pref_source in user_source_prefs:
+                    if article_source.lower() == pref_source.lower():
+                        articles.append(article)
+                        break
+
+            if not articles:
+                return jsonify({
+                    'success': True,
+                    'briefing': {'content': f'No recent articles found from your selected sources: {", ".join(user_source_prefs)}. Please check back later or add more sources.'},
+                    'message': 'No articles from selected sources',
+                    'user_specific': True
+                })
 
         briefing = briefing_generator.generate_daily_briefing(articles, user_preferences)
 
@@ -1830,12 +2165,21 @@ def api_logout():
 # ============================================================================
 
 @app.route('/admin')
+@login_required
 @admin_required
 def admin_dashboard():
     """Admin dashboard"""
     return render_template('admin/dashboard.html')
 
+@app.route('/admin/settings')
+@login_required
+@admin_required
+def admin_settings_page():
+    """Admin settings page"""
+    return render_template('admin/settings.html')
+
 @app.route('/api/admin/stats')
+@login_required
 @admin_required
 def admin_stats():
     """Get admin statistics"""
@@ -1950,6 +2294,7 @@ def admin_audit_log():
         return jsonify({'success': False, 'error': 'Failed to load audit log'})
 
 @app.route('/api/admin/recent-activity')
+@login_required
 @admin_required
 def admin_recent_activity():
     """Get recent activity for dashboard"""
@@ -1959,6 +2304,239 @@ def admin_recent_activity():
     except Exception as e:
         logger.error(f"Admin recent activity error: {e}")
         return jsonify({'success': False, 'error': 'Failed to load recent activity'})
+
+# ============================================================================
+# ADMIN SETTINGS ROUTES
+# ============================================================================
+
+@app.route('/api/admin/settings')
+@login_required
+@admin_required
+def admin_get_settings():
+    """Get all admin settings"""
+    try:
+        settings = admin_settings_manager.get_all_settings()
+        return jsonify({'success': True, 'settings': settings})
+    except Exception as e:
+        logger.error(f"Admin get settings error: {e}")
+        return jsonify({'success': False, 'error': 'Failed to load settings'})
+
+@app.route('/api/admin/settings/user-limits', methods=['PUT'])
+@admin_required
+def admin_update_user_limits():
+    """Update user limits"""
+    try:
+        data = request.get_json()
+        result = admin_settings_manager.update_user_limits(**data)
+        return jsonify(result)
+    except Exception as e:
+        logger.error(f"Admin update user limits error: {e}")
+        return jsonify({'success': False, 'error': 'Failed to update user limits'})
+
+@app.route('/api/admin/settings/system', methods=['PUT'])
+@admin_required
+def admin_update_system_settings():
+    """Update system settings"""
+    try:
+        data = request.get_json()
+        result = admin_settings_manager.update_system_settings(**data)
+        return jsonify(result)
+    except Exception as e:
+        logger.error(f"Admin update system settings error: {e}")
+        return jsonify({'success': False, 'error': 'Failed to update system settings'})
+
+@app.route('/api/admin/settings/reset', methods=['POST'])
+@admin_required
+def admin_reset_settings():
+    """Reset all settings to defaults"""
+    try:
+        result = admin_settings_manager.reset_to_defaults()
+        return jsonify(result)
+    except Exception as e:
+        logger.error(f"Admin reset settings error: {e}")
+        return jsonify({'success': False, 'error': 'Failed to reset settings'})
+
+@app.route('/api/admin/custom-sources/pending')
+@login_required
+@admin_required
+def admin_pending_custom_sources():
+    """Get custom sources pending approval"""
+    try:
+        pending_sources = enhanced_user_sources.get_pending_custom_sources()
+        sources_data = [source.to_dict() for source in pending_sources]
+        return jsonify({'success': True, 'pending_sources': sources_data})
+    except Exception as e:
+        logger.error(f"Admin pending custom sources error: {e}")
+        return jsonify({'success': False, 'error': 'Failed to load pending sources'})
+
+@app.route('/api/admin/custom-sources/<source_id>/approve', methods=['POST'])
+@admin_required
+def admin_approve_custom_source(source_id):
+    """Approve a custom source"""
+    try:
+        current_user = get_current_user()
+        data = request.get_json() or {}
+        tags = data.get('tags', [])
+
+        result = enhanced_user_sources.approve_custom_source(source_id, current_user.user_id, tags)
+        return jsonify(result)
+    except Exception as e:
+        logger.error(f"Admin approve custom source error: {e}")
+        return jsonify({'success': False, 'error': 'Failed to approve custom source'})
+
+@app.route('/api/admin/custom-sources/<source_id>/reject', methods=['POST'])
+@admin_required
+def admin_reject_custom_source(source_id):
+    """Reject a custom source with reason"""
+    try:
+        current_user = get_current_user()
+        data = request.get_json()
+
+        if not data or not data.get('reason'):
+            return jsonify({'success': False, 'error': 'Rejection reason is required'})
+
+        reason = data.get('reason')
+        result = enhanced_user_sources.reject_custom_source(source_id, current_user.user_id, reason)
+        return jsonify(result)
+    except Exception as e:
+        logger.error(f"Admin reject custom source error: {e}")
+        return jsonify({'success': False, 'error': 'Failed to reject custom source'})
+
+@app.route('/api/admin/sources/<source_name>', methods=['DELETE'])
+@admin_required
+def admin_delete_source(source_name):
+    """Admin endpoint to delete a source from both global config and enhanced user sources"""
+    try:
+        current_user = get_current_user()
+
+        # Step 1: Remove from global config.json
+        config = load_config()
+        news_sources = config.get("news_sources", {})
+
+        source_existed_in_global = source_name in news_sources
+        if source_existed_in_global:
+            del news_sources[source_name]
+            config["news_sources"] = news_sources
+            with open('config.json', 'w', encoding='utf-8') as f:
+                json.dump(config, f, indent=4, ensure_ascii=False)
+            reload_config()
+
+        # Step 2: Remove from enhanced user sources system
+        # Get all users who have this source
+        removed_from_users = []
+
+        for user_id, user_source_list in enhanced_user_sources.user_sources.items():
+            for user_source in user_source_list:
+                if user_source.name == source_name:
+                    # Remove this source from the user
+                    result = enhanced_user_sources.remove_user_source(user_id, user_source.source_id)
+                    if result.get('success'):
+                        removed_from_users.append(user_id)
+
+        # Step 3: Remove from legacy user_sources.json if exists
+        user_sources_file = os.path.join(data_dir, 'user_sources.json')
+        if os.path.exists(user_sources_file):
+            try:
+                with open(user_sources_file, 'r', encoding='utf-8') as f:
+                    user_prefs = json.load(f)
+
+                enabled_sources = set(user_prefs.get('enabled_sources', []))
+                enabled_sources.discard(source_name)
+
+                user_prefs['enabled_sources'] = list(enabled_sources)
+                with open(user_sources_file, 'w', encoding='utf-8') as f:
+                    json.dump(user_prefs, f, indent=2, ensure_ascii=False)
+            except Exception as e:
+                logger.warning(f"Failed to update legacy user_sources.json: {e}")
+
+        # Step 4: Update global source states
+        try:
+            enhanced_user_sources.set_global_source_state(source_name, False)
+        except Exception as e:
+            logger.warning(f"Failed to update global source state: {e}")
+
+        return jsonify({
+            'success': True,
+            'message': f'Source "{source_name}" deleted successfully',
+            'details': {
+                'removed_from_global_config': source_existed_in_global,
+                'removed_from_users': removed_from_users,
+                'affected_users_count': len(removed_from_users)
+            }
+        })
+
+    except Exception as e:
+        logger.error(f"Admin delete source error: {e}")
+        return jsonify({
+            'success': False,
+            'error': f'Failed to delete source: {str(e)}'
+        })
+
+@app.route('/api/admin/validate-source', methods=['POST'])
+@admin_required
+def admin_validate_source():
+    """Validate a source URL for admin review"""
+    try:
+        data = request.get_json()
+
+        if not data or not data.get('url'):
+            return jsonify({'success': False, 'error': 'URL is required'})
+
+        url = data.get('url')
+        name = data.get('name', '')
+        category = data.get('category', 'general')
+
+        result = enhanced_user_sources.validate_source(url, name, category)
+        return jsonify(result)
+
+    except Exception as e:
+        logger.error(f"Admin validate source error: {e}")
+        return jsonify({'success': False, 'error': 'Failed to validate source'})
+
+@app.route('/api/admin/pending-sources', methods=['GET'])
+@admin_required
+def admin_get_pending_sources():
+    """Get all pending custom sources for admin review"""
+    try:
+        pending_sources = enhanced_user_sources.get_pending_custom_sources()
+
+        # Convert to dict format
+        sources_data = []
+        for source in pending_sources:
+            source_dict = source.to_dict()
+            # Add user info
+            user = user_manager.get_user_by_id(source.user_id)
+            if user:
+                source_dict['submitted_by'] = {
+                    'username': user.username,
+                    'email': user.email,
+                    'user_id': user.user_id
+                }
+            sources_data.append(source_dict)
+
+        return jsonify({
+            'success': True,
+            'pending_sources': sources_data,
+            'count': len(sources_data)
+        })
+
+    except Exception as e:
+        logger.error(f"Admin get pending sources error: {e}")
+        return jsonify({'success': False, 'error': 'Failed to get pending sources'})
+
+@app.route('/api/admin/performance-stats')
+@admin_required
+def admin_performance_stats():
+    """Get system performance statistics"""
+    try:
+        performance_report = performance_optimizer.get_performance_report()
+        return jsonify({
+            'success': True,
+            'performance': performance_report
+        })
+    except Exception as e:
+        logger.error(f"Admin performance stats error: {e}")
+        return jsonify({'success': False, 'error': 'Failed to get performance statistics'})
 
 # ============================================================================
 # USER DASHBOARD ROUTES
@@ -1984,41 +2562,129 @@ def user_profile():
         logger.error(f"User profile error: {e}")
         return jsonify({'success': False, 'error': 'Failed to load profile'})
 
+@app.route('/api/user/source-preferences')
+@login_required
+def user_source_preferences():
+    """Get user's news source preferences"""
+    try:
+        current_user = get_current_user()
+
+        # Use enhanced user sources instead of old user manager
+        preferences = enhanced_user_sources.get_user_source_preferences(current_user.user_id)
+
+        # Get all user sources (both global and custom) for detailed information
+        user_sources = enhanced_user_sources.get_user_sources(current_user.user_id)
+
+        # Get details for each preferred source
+        source_details = []
+        for source_name in preferences:
+            # First try to find in user's enhanced sources
+            found_in_user_sources = False
+            for user_source in user_sources:
+                if user_source.name == source_name:
+                    detail = {
+                        'name': user_source.name,
+                        'url': user_source.url,
+                        'category': user_source.category,
+                        'source_type': user_source.source_type.value if hasattr(user_source.source_type, 'value') else str(user_source.source_type)
+                    }
+                    source_details.append(detail)
+                    found_in_user_sources = True
+                    break
+
+            # If not found in user sources, try global config (fallback)
+            if not found_in_user_sources and source_name in news_sources:
+                source_config = news_sources[source_name]
+                if isinstance(source_config, str):
+                    detail = {
+                        'name': source_name,
+                        'url': source_config,
+                        'category': 'General',
+                        'source_type': 'global'
+                    }
+                else:
+                    detail = {
+                        'name': source_name,
+                        'url': source_config.get('url', ''),
+                        'category': source_config.get('category', 'General'),
+                        'source_type': 'global'
+                    }
+                source_details.append(detail)
+
+        # Get admin limits
+        limits = admin_settings_manager.get_user_limits()
+
+        return jsonify({
+            'success': True,
+            'preferences': preferences,
+            'source_details': source_details,
+            'count': len(preferences),
+            'max_allowed': limits.max_sources_per_user,
+            'debug_info': {
+                'user_id': current_user.user_id,
+                'enhanced_sources_working': True,
+                'total_user_sources': len(user_sources)
+            }
+        })
+    except Exception as e:
+        logger.error(f"User source preferences error: {e}")
+        return jsonify({'success': False, 'error': 'Failed to load source preferences'})
+
 @app.route('/api/user/sources')
 @login_required
 def user_sources():
-    """Get user's news sources"""
-    try:
-        current_user = get_current_user()
-        sources = user_manager.get_user_sources(current_user.user_id)
-        sources_data = [source.to_dict() for source in sources]
+    """Get user's news sources (legacy compatibility)"""
+    return user_source_preferences()
 
-        return jsonify({'success': True, 'sources': sources_data})
-    except Exception as e:
-        logger.error(f"User sources error: {e}")
-        return jsonify({'success': False, 'error': 'Failed to load sources'})
-
-@app.route('/api/user/sources', methods=['POST'])
+@app.route('/api/user/source-preferences', methods=['POST'])
 @login_required
-def add_user_source():
-    """Add a new news source for user"""
+def add_user_source_preference():
+    """Add a news source preference for user (from global sources)"""
     try:
         current_user = get_current_user()
         data = request.get_json()
 
-        name = data.get('name')
-        url = data.get('url')
-        category = data.get('category', 'general')
+        source_name = data.get('source_name')
 
-        if not name or not url:
-            return jsonify({'success': False, 'error': 'Name and URL are required'})
+        if not source_name:
+            return jsonify({'success': False, 'error': 'Source name is required'})
 
-        result = user_manager.add_user_source(current_user.user_id, name, url, category)
+        # Check if source exists in global configuration
+        if source_name not in news_sources:
+            return jsonify({'success': False, 'error': 'Source not found in global configuration'})
+
+        result = enhanced_user_sources.add_user_source_preference(current_user.user_id, source_name)
+
+        if result.get('success'):
+            # Check if there are existing articles from this source
+            all_articles = data_manager.load_news_data()
+            articles_from_new_source = []
+
+            for article in all_articles:
+                article_source = article.get('source', '').strip()
+                if article_source.lower() == source_name.lower():
+                    articles_from_new_source.append(article)
+
+            # Enhance the response with guidance
+            if articles_from_new_source:
+                result['articles_available'] = len(articles_from_new_source)
+                result['message'] = f'✅ {source_name} added successfully! {len(articles_from_new_source)} articles are now available in your feed.'
+            else:
+                result['articles_available'] = 0
+                result['message'] = f'✅ {source_name} added successfully! Click "Fetch News" to get the latest articles from this source.'
+                result['needs_fetch'] = True
+
         return jsonify(result)
 
     except Exception as e:
-        logger.error(f"Add user source error: {e}")
-        return jsonify({'success': False, 'error': 'Failed to add source'})
+        logger.error(f"Add user source preference error: {e}")
+        return jsonify({'success': False, 'error': 'Failed to add source preference'})
+
+@app.route('/api/user/sources', methods=['POST'])
+@login_required
+def add_user_source():
+    """Add a new news source for user (legacy compatibility)"""
+    return add_user_source_preference()
 
 @app.route('/api/user/sources/<source_id>')
 @login_required
@@ -2059,54 +2725,201 @@ def update_user_source(source_id):
         logger.error(f"Update user source error: {e}")
         return jsonify({'success': False, 'error': 'Failed to update source'})
 
-@app.route('/api/user/sources/<source_id>', methods=['DELETE'])
+@app.route('/api/user/source-preferences/<source_name>', methods=['DELETE'])
 @login_required
-def delete_user_source(source_id):
-    """Delete a user's news source"""
+def remove_user_source_preference(source_name):
+    """Remove a user's news source preference"""
     try:
         current_user = get_current_user()
-        result = user_manager.delete_user_source(current_user.user_id, source_id)
+        result = enhanced_user_sources.remove_user_source_preference(current_user.user_id, source_name)
         return jsonify(result)
 
     except Exception as e:
-        logger.error(f"Delete user source error: {e}")
-        return jsonify({'success': False, 'error': 'Failed to delete source'})
+        logger.error(f"Remove user source preference error: {e}")
+        return jsonify({'success': False, 'error': 'Failed to remove source preference'})
+
+@app.route('/api/user/sources/<source_id>', methods=['DELETE'])
+@login_required
+def delete_user_source(source_id):
+    """Delete a user's news source (legacy compatibility)"""
+    # For legacy compatibility, treat source_id as source_name
+    return remove_user_source_preference(source_id)
+
+# ============================================================================
+# ENHANCED USER SOURCE ROUTES
+# ============================================================================
+
+@app.route('/api/user/enhanced-sources')
+@login_required
+def user_enhanced_sources():
+    """Get user's enhanced sources"""
+    try:
+        current_user = get_current_user()
+        sources = enhanced_user_sources.get_user_sources(current_user.user_id)
+        sources_data = [source.to_dict() for source in sources]
+
+        # Get user limits
+        limits = admin_settings_manager.get_user_limits()
+
+        return jsonify({
+            'success': True,
+            'sources': sources_data,
+            'limits': {
+                'max_sources': limits.max_sources_per_user,
+                'max_custom_sources': limits.max_custom_sources_per_user,
+                'max_articles_per_source': limits.max_articles_per_source,
+                'fetch_interval_minutes': limits.fetch_interval_minutes
+            },
+            'current_count': len(sources_data)
+        })
+    except Exception as e:
+        logger.error(f"User enhanced sources error: {e}")
+        return jsonify({'success': False, 'error': 'Failed to load enhanced sources'})
+
+@app.route('/api/user/enhanced-sources', methods=['POST'])
+@login_required
+def add_user_enhanced_source():
+    """Add a new enhanced source for user"""
+    try:
+        current_user = get_current_user()
+        data = request.get_json()
+
+        name = data.get('name')
+        url = data.get('url')
+        category = data.get('category', 'general')
+        is_custom = data.get('is_custom', False)
+
+        if not name or not url:
+            return jsonify({'success': False, 'error': 'Name and URL are required'})
+
+        from core.enhanced_user_sources import SourceType
+        source_type = SourceType.USER_CUSTOM if is_custom else SourceType.GLOBAL
+
+        result = enhanced_user_sources.add_user_source(
+            current_user.user_id, name, url, category, source_type
+        )
+        return jsonify(result)
+
+    except Exception as e:
+        logger.error(f"Add user enhanced source error: {e}")
+        return jsonify({'success': False, 'error': 'Failed to add enhanced source'})
+
+@app.route('/api/user/enhanced-sources/<source_id>', methods=['DELETE'])
+@login_required
+def remove_user_enhanced_source(source_id):
+    """Remove a user's enhanced source"""
+    try:
+        current_user = get_current_user()
+        result = enhanced_user_sources.remove_user_source(current_user.user_id, source_id)
+        return jsonify(result)
+
+    except Exception as e:
+        logger.error(f"Remove user enhanced source error: {e}")
+        return jsonify({'success': False, 'error': 'Failed to remove enhanced source'})
+
+@app.route('/api/user/fetch-schedule')
+@login_required
+def user_fetch_schedule():
+    """Get user's fetch schedule"""
+    try:
+        current_user = get_current_user()
+        schedule = enhanced_user_sources.get_user_schedule(current_user.user_id)
+
+        return jsonify({
+            'success': True,
+            'schedule': schedule.to_dict(),
+            'can_fetch_now': enhanced_user_sources.can_user_fetch_now(current_user.user_id)
+        })
+    except Exception as e:
+        logger.error(f"User fetch schedule error: {e}")
+        return jsonify({'success': False, 'error': 'Failed to load fetch schedule'})
+
+@app.route('/api/user/fetch-schedule', methods=['PUT'])
+@login_required
+def update_user_fetch_schedule():
+    """Update user's fetch schedule"""
+    try:
+        current_user = get_current_user()
+        data = request.get_json()
+
+        result = enhanced_user_sources.update_user_schedule(current_user.user_id, **data)
+        return jsonify(result)
+
+    except Exception as e:
+        logger.error(f"Update user fetch schedule error: {e}")
+        return jsonify({'success': False, 'error': 'Failed to update fetch schedule'})
 
 @app.route('/api/user/news-feed')
 @login_required
 def user_news_feed():
-    """Get user's personalized news feed"""
+    """Get user's personalized news feed with enhanced filtering"""
     try:
         current_user = get_current_user()
 
-        # Get user's sources
-        user_sources = user_manager.get_user_sources(current_user.user_id)
+        # Check if user can fetch now
+        fetch_check = enhanced_user_sources.can_user_fetch_now(current_user.user_id)
+        if not fetch_check['can_fetch']:
+            return jsonify({
+                'success': False,
+                'error': fetch_check.get('reason', 'Cannot fetch at this time'),
+                'can_fetch': False
+            })
 
-        if not user_sources:
-            return jsonify({'success': True, 'articles': []})
+        # Get user's enhanced sources
+        user_sources = enhanced_user_sources.get_user_sources(current_user.user_id)
+        active_sources = [s for s in user_sources if s.enabled and s.status.value == 'active']
 
-        # Create a temporary news fetcher with user's sources
+        if not active_sources:
+            return jsonify({
+                'success': True,
+                'articles': [],
+                'message': 'No active sources configured'
+            })
+
+        # Create news fetcher with user's sources
         user_news_sources = {}
-        for source in user_sources:
-            if source.enabled:
+        for source in active_sources:
+            if source.can_fetch_now():
                 user_news_sources[source.name] = source.url
 
         if not user_news_sources:
-            return jsonify({'success': True, 'articles': []})
+            return jsonify({
+                'success': True,
+                'articles': [],
+                'message': 'No sources ready for fetching (check fetch intervals)'
+            })
 
-        # Fetch news from user's sources
-        user_fetcher = NewsFetcher(user_news_sources)
+        # Fetch news from user's sources with admin-configured limits
+        schedule = enhanced_user_sources.get_user_schedule(current_user.user_id)
+        user_fetcher = NewsFetcher(user_news_sources, max_articles_per_source=schedule.max_articles_per_source)
         articles = user_fetcher.fetch_all_news()
 
-        # Add source information to articles
-        for article in articles:
-            article['user_id'] = current_user.user_id
+        # Apply user limits (max articles per source)
+        schedule = enhanced_user_sources.get_user_schedule(current_user.user_id)
+        limited_articles = []
+        source_counts = {}
 
-        return jsonify({'success': True, 'articles': articles})
+        for article in articles:
+            source_name = article.get('source', 'Unknown')
+            if source_counts.get(source_name, 0) < schedule.max_articles_per_source:
+                limited_articles.append(article)
+                source_counts[source_name] = source_counts.get(source_name, 0) + 1
+
+        # Update fetch statistics for sources
+        for source in active_sources:
+            if source.name in user_news_sources:
+                source.update_fetch_stats(success=True)
+
+        return jsonify({
+            'success': True,
+            'articles': limited_articles,
+            'source_counts': source_counts,
+            'total_sources_fetched': len(user_news_sources)
+        })
 
     except Exception as e:
-        logger.error(f"User news feed error: {e}")
-        return jsonify({'success': False, 'error': 'Failed to load news feed'})
+        logger.error(f"User enhanced news feed error: {e}")
+        return jsonify({'success': False, 'error': 'Failed to load enhanced news feed'})
 
 def main():
     print("🚀 News Feed Application - Full AI-Powered Server")

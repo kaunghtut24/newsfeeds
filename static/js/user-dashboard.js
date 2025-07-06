@@ -34,19 +34,198 @@ class UserDashboard {
         document.getElementById('accountStatus').textContent = user.status;
         document.getElementById('memberSince').textContent = this.formatDate(user.created_at);
         document.getElementById('lastLogin').textContent = this.formatDate(user.last_login);
+
+        // Show admin link if user is admin
+        if (user.role === 'admin') {
+            const adminLink = document.getElementById('adminLinkHeader');
+            if (adminLink) {
+                adminLink.style.display = 'inline-block';
+            }
+        }
     }
     
     async loadUserSources() {
         try {
-            const response = await this.apiCall('/api/user/sources');
+            const response = await this.apiCall('/api/user/source-preferences');
             if (response.success) {
-                this.displaySources(response.sources);
-                document.getElementById('sourcesCount').textContent = response.sources.length;
+                // Store the dynamic limits from admin settings
+                this.maxSources = response.max_allowed || 6; // Default to 6 if not provided
+
+                this.displayUserSourcePreferences(response.source_details || [], response.count || 0);
+                this.updateSourceCount(response.count || 0);
+            } else {
+                console.error('Failed to load user sources:', response.error);
+                document.getElementById('sourcesList').innerHTML =
+                    '<div class="empty-state">Error loading news sources</div>';
             }
         } catch (error) {
             console.error('Error loading user sources:', error);
-            document.getElementById('sourcesList').innerHTML = 
+            document.getElementById('sourcesList').innerHTML =
                 '<div class="empty-state">Error loading news sources</div>';
+        }
+    }
+
+    updateSourceCount(count) {
+        const sourceCountEl = document.getElementById('sourceCount');
+        if (sourceCountEl) {
+            sourceCountEl.textContent = count;
+        }
+
+        // Update the max sources display in the HTML
+        const maxSourcesEl = document.getElementById('maxSources');
+        if (maxSourcesEl) {
+            const maxSources = this.maxSources || 6; // Use dynamic limit or default
+            maxSourcesEl.textContent = maxSources;
+        }
+
+        const addBtn = document.getElementById('addSourceBtn');
+        if (addBtn) {
+            // Use dynamic max sources from admin settings
+            const maxSources = this.maxSources || 6; // Use dynamic limit or default
+            if (count >= maxSources) {
+                addBtn.disabled = true;
+                addBtn.textContent = `📋 Limit Reached (${count}/${maxSources})`;
+            } else {
+                addBtn.disabled = false;
+                addBtn.textContent = '📋 Select Sources';
+            }
+        }
+    }
+
+    displayUserSourcePreferences(sourceDetails, count) {
+        const container = document.getElementById('sourcesList');
+
+        if (!sourceDetails || sourceDetails.length === 0) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <p>No news sources selected yet.</p>
+                    <p>Click "Select Sources" to choose from available sources.</p>
+                </div>
+            `;
+            return;
+        }
+
+        const sourcesHtml = sourceDetails.map(source => `
+            <div class="source-item">
+                <div class="source-info">
+                    <h4>${source.name}</h4>
+                    <p class="source-url">${source.url}</p>
+                    <span class="source-category">${source.category}</span>
+                </div>
+                <div class="source-actions">
+                    <button onclick="userDashboard.removeSourcePreference('${source.name}')"
+                            class="btn btn-danger btn-sm">
+                        🗑️ Remove
+                    </button>
+                </div>
+            </div>
+        `).join('');
+
+        container.innerHTML = sourcesHtml;
+    }
+
+    async showSourceSelector() {
+        try {
+            // Get available global sources
+            const response = await this.apiCall('/api/sources');
+            if (response.success) {
+                this.displaySourceSelector(response.sources);
+            } else {
+                this.showAlert('Failed to load available sources', 'error');
+            }
+        } catch (error) {
+            console.error('Error loading sources:', error);
+            this.showAlert('Error loading available sources', 'error');
+        }
+    }
+
+    displaySourceSelector(sources) {
+        // Create modal for source selection
+        const modalHtml = `
+            <div class="modal-overlay" id="sourceSelectorModal">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3>📋 Select News Sources</h3>
+                        <button onclick="userDashboard.closeSourceSelector()" class="modal-close">×</button>
+                    </div>
+                    <div class="modal-body">
+                        <p>Choose from available news sources (up to 3 sources):</p>
+                        <div class="source-selector-list">
+                            ${sources.map(source => `
+                                <div class="source-selector-item ${source.user_selected ? 'selected' : ''}">
+                                    <div class="source-info">
+                                        <h4>${source.name}</h4>
+                                        <p class="source-description">${source.description}</p>
+                                        <span class="source-category">${source.category}</span>
+                                    </div>
+                                    <div class="source-actions">
+                                        ${source.user_selected ?
+                                            `<button onclick="userDashboard.removeSourcePreference('${source.name}')"
+                                                    class="btn btn-danger btn-sm">Remove</button>` :
+                                            `<button onclick="userDashboard.addSourcePreference('${source.name}')"
+                                                    class="btn btn-success btn-sm">Add</button>`
+                                        }
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button onclick="userDashboard.closeSourceSelector()" class="btn btn-secondary">Close</button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // Add modal to page
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+    }
+
+    closeSourceSelector() {
+        const modal = document.getElementById('sourceSelectorModal');
+        if (modal) {
+            modal.remove();
+        }
+    }
+
+    async addSourcePreference(sourceName) {
+        try {
+            const response = await this.apiCall('/api/user/source-preferences', 'POST', {
+                source_name: sourceName
+            });
+
+            if (response.success) {
+                this.showAlert(`Added ${sourceName} to your sources!`, 'success');
+                await this.loadUserSources();
+                this.closeSourceSelector();
+            } else {
+                this.showAlert('Failed to add source: ' + response.error, 'error');
+            }
+        } catch (error) {
+            console.error('Error adding source preference:', error);
+            this.showAlert('Error adding source', 'error');
+        }
+    }
+
+    async removeSourcePreference(sourceName) {
+        try {
+            const response = await this.apiCall(`/api/user/source-preferences/${sourceName}`, 'DELETE');
+
+            if (response.success) {
+                this.showAlert(`Removed ${sourceName} from your sources!`, 'success');
+                await this.loadUserSources();
+                // Refresh source selector if open
+                const modal = document.getElementById('sourceSelectorModal');
+                if (modal) {
+                    this.closeSourceSelector();
+                    await this.showSourceSelector();
+                }
+            } else {
+                this.showAlert('Failed to remove source: ' + response.error, 'error');
+            }
+        } catch (error) {
+            console.error('Error removing source preference:', error);
+            this.showAlert('Error removing source', 'error');
         }
     }
     
@@ -219,8 +398,7 @@ class UserDashboard {
             }
         });
         
-        // Load news feed on page load
-        this.refreshNewsFeed();
+        // News feed functionality moved to main application
     }
     
     async handleAddSource(e) {
@@ -228,21 +406,27 @@ class UserDashboard {
         const data = {
             name: formData.get('name'),
             url: formData.get('url'),
-            category: formData.get('category')
+            category: formData.get('category'),
+            is_custom: true  // Mark as custom source for auto-add to global
         };
-        
+
         try {
-            const response = await this.apiCall('/api/user/sources', 'POST', data);
+            // Use enhanced sources API for custom source addition
+            const response = await this.apiCall('/api/user/enhanced-sources', 'POST', data);
             if (response.success) {
-                this.showAlert('News source added successfully', 'success');
+                this.showAlert('✅ Custom news source added successfully! It will be available globally for other users too.', 'success');
+
+                setTimeout(() => {
+                    this.showAlert('💡 Tip: Visit the main application and click "Fetch News" to get articles from your new source!', 'info');
+                }, 2000);
+
                 this.hideAddSourceModal();
                 this.loadUserSources();
-                this.refreshNewsFeed();
             } else {
                 this.showAlert(response.error, 'error');
             }
         } catch (error) {
-            this.showAlert('Error adding news source', 'error');
+            this.showAlert('Error adding custom news source', 'error');
         }
     }
     
@@ -261,7 +445,6 @@ class UserDashboard {
                 this.showAlert('News source updated successfully', 'success');
                 this.hideEditSourceModal();
                 this.loadUserSources();
-                this.refreshNewsFeed();
             } else {
                 this.showAlert(response.error, 'error');
             }

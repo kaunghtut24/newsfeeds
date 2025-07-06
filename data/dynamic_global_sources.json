@@ -1,0 +1,51 @@
+{
+  "ABC News": {
+    "url": "https://abcnews.go.com/abcnews/worldnewsheadlines",
+    "category": "general",
+    "type": "rss",
+    "added_by_user": true,
+    "added_at": "2025-07-06T18:09:43.156826"
+  },
+  "Test Custom Source": {
+    "url": "https://example.com/feed.xml",
+    "category": "Technology",
+    "type": "rss",
+    "added_by_user": true,
+    "added_at": "2025-07-06T18:47:15.037174"
+  },
+  "Test Custom News": {
+    "url": "https://example.com/news.xml",
+    "category": "Technology",
+    "type": "rss",
+    "added_by_user": true,
+    "added_at": "2025-07-06T18:56:13.704024"
+  },
+  "Live Mint-Industry": {
+    "url": "https://www.livemint.com/rss/industry",
+    "category": "general",
+    "type": "rss",
+    "added_by_user": true,
+    "added_at": "2025-07-06T18:59:18.510713"
+  },
+  "ABC News Top Stories": {
+    "url": "https://abcnews.go.com/abcnews/topstories",
+    "category": "General",
+    "type": "rss",
+    "added_by_user": true,
+    "added_at": "2025-07-06T19:12:55.438665"
+  },
+  "TechCrunch RSS": {
+    "url": "https://techcrunch.com/feed/",
+    "category": "technology",
+    "type": "rss",
+    "added_by_user": true,
+    "added_at": "2025-07-06T20:07:20.100502"
+  },
+  "Reuters": {
+    "url": "https://ir.thomsonreuters.com/rss/news-releases.xml",
+    "category": "general",
+    "type": "rss",
+    "added_by_user": true,
+    "added_at": "2025-07-06T20:15:51.761210"
+  }
+}

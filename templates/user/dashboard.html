@@ -301,7 +301,7 @@
             text-align: center;
             padding: 20px;
         }
-        
+
         .spinner {
             border: 3px solid #f3f3f3;
             border-top: 3px solid #667eea;
@@ -310,6 +310,222 @@
             height: 30px;
             animation: spin 1s linear infinite;
             margin: 0 auto 15px;
+        }
+
+        .quick-actions {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+
+        .action-card {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border: 2px solid #dee2e6;
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            text-decoration: none;
+            color: inherit;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .action-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            border-color: #007bff;
+            text-decoration: none;
+            color: inherit;
+        }
+
+        .action-icon {
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+
+        .action-title {
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #333;
+        }
+
+        .action-desc {
+            font-size: 12px;
+            color: #666;
+        }
+
+        .source-limit-info {
+            font-size: 14px;
+            color: #666;
+            background-color: #f8f9fa;
+            padding: 4px 8px;
+            border-radius: 4px;
+            border: 1px solid #dee2e6;
+        }
+
+        .source-info {
+            margin-top: 20px;
+        }
+
+        .info-box {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 15px;
+        }
+
+        .info-box h4 {
+            margin: 0 0 10px 0;
+            color: #495057;
+            font-size: 16px;
+        }
+
+        .info-box ul {
+            margin: 0;
+            padding-left: 20px;
+        }
+
+        .info-box li {
+            margin-bottom: 5px;
+            color: #6c757d;
+        }
+
+        /* Source Selector Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+
+        .modal-header {
+            background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+            color: white;
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-header h3 {
+            margin: 0;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-body {
+            padding: 20px;
+            max-height: 50vh;
+            overflow-y: auto;
+        }
+
+        .modal-footer {
+            padding: 20px;
+            border-top: 1px solid #e1e5e9;
+            text-align: right;
+        }
+
+        .source-selector-list {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .source-selector-item {
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+            padding: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.3s ease;
+        }
+
+        .source-selector-item:hover {
+            border-color: #007bff;
+            background-color: #f8f9fa;
+        }
+
+        .source-selector-item.selected {
+            border-color: #28a745;
+            background-color: #d4edda;
+        }
+
+        .source-selector-item .source-info h4 {
+            margin: 0 0 5px 0;
+            color: #333;
+        }
+
+        .source-selector-item .source-description {
+            margin: 0 0 5px 0;
+            color: #666;
+            font-size: 14px;
+        }
+
+        .source-selector-item .source-category {
+            background-color: #007bff;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+
+        .source-item {
+            border: 1px solid #e1e5e9;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .source-item .source-info h4 {
+            margin: 0 0 5px 0;
+            color: #333;
+        }
+
+        .source-item .source-url {
+            margin: 0 0 5px 0;
+            color: #666;
+            font-size: 12px;
+            word-break: break-all;
+        }
+
+        .source-item .source-category {
+            background-color: #6c757d;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 12px;
         }
         
         @keyframes spin {
@@ -348,7 +564,8 @@
                 <p>Manage your personal news sources and stay informed</p>
             </div>
             <div class="header-actions">
-                <a href="/" class="btn btn-primary">🏠 Main App</a>
+                <a href="/app" class="btn btn-primary">📰 News Feed App</a>
+                <a href="/admin" class="btn btn-primary" id="adminLinkHeader" style="display: none;">🔧 Admin Panel</a>
                 <a href="/api/auth/logout" class="btn btn-primary">Logout</a>
             </div>
         </div>
@@ -358,19 +575,33 @@
         
         <!-- Dashboard Grid -->
         <div class="dashboard-grid">
-            <!-- My News Sources -->
+            <!-- My News Source Preferences -->
             <div class="dashboard-card">
                 <div class="card-header">
                     <h2 class="card-title">📰 My News Sources</h2>
-                    <button class="btn btn-success btn-sm" onclick="userDashboard.showAddSourceModal()">
-                        + Add Source
+                    <div class="source-limit-info">
+                        <span id="sourceCount">0</span>/<span id="maxSources">6</span> sources selected
+                    </div>
+                    <button class="btn btn-success btn-sm" onclick="userDashboard.showSourceSelector()" id="addSourceBtn">
+                        📋 Select Sources
                     </button>
                 </div>
                 <div class="card-content">
                     <div id="sourcesList">
                         <div class="loading">
                             <div class="spinner"></div>
-                            Loading your news sources...
+                            Loading your news source preferences...
+                        </div>
+                    </div>
+                    <div class="source-info">
+                        <div class="info-box">
+                            <h4>📋 How News Sources Work:</h4>
+                            <ul>
+                                <li>✅ Choose up to 3 news sources from our global collection</li>
+                                <li>🌐 News is fetched from all sources globally by admin</li>
+                                <li>🎯 You see only articles from your selected sources</li>
+                                <li>📰 Access your personalized feed in the main application</li>
+                            </ul>
                         </div>
                     </div>
                 </div>
@@ -408,20 +639,23 @@
             </div>
         </div>
         
-        <!-- Recent News -->
+        <!-- Quick Actions -->
         <div class="dashboard-card">
             <div class="card-header">
-                <h2 class="card-title">📊 My News Feed</h2>
-                <button class="btn btn-primary btn-sm" onclick="userDashboard.refreshNewsFeed()">
-                    🔄 Refresh
-                </button>
+                <h2 class="card-title">🚀 Quick Actions</h2>
             </div>
             <div class="card-content">
-                <div id="newsFeed">
-                    <div class="loading">
-                        <div class="spinner"></div>
-                        Loading your personalized news feed...
-                    </div>
+                <div class="quick-actions">
+                    <a href="/app" class="action-card">
+                        <div class="action-icon">📰</div>
+                        <div class="action-title">View News Feed</div>
+                        <div class="action-desc">Access your personalized news feed with AI features</div>
+                    </a>
+                    <button onclick="userDashboard.showAddSourceModal()" class="action-card">
+                        <div class="action-icon">➕</div>
+                        <div class="action-title">Add News Source</div>
+                        <div class="action-desc">Add a new RSS feed to your collection</div>
+                    </button>
                 </div>
             </div>
         </div>

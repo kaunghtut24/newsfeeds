@@ -436,7 +436,102 @@ class UserManager:
 
         return {'success': True, 'message': 'User deleted successfully'}
 
-    # User News Source Management Methods
+    # User News Source Preference Management Methods (New Architecture)
+
+    def get_user_source_preferences(self, user_id: str) -> List[str]:
+        """Get user's preferred news sources (from global sources)"""
+        try:
+            prefs_file = os.path.join(self.data_dir, 'user_preferences.json')
+            if not os.path.exists(prefs_file):
+                return []
+
+            with open(prefs_file, 'r', encoding='utf-8') as f:
+                prefs = json.load(f)
+
+            return prefs.get(user_id, {}).get('enabled_sources', [])
+        except Exception as e:
+            logger.error(f"Error loading user preferences: {e}")
+            return []
+
+    def add_user_source_preference(self, user_id: str, source_name: str) -> Dict[str, Any]:
+        """Add a news source preference for a user (max 3 sources)"""
+        try:
+            # Validate user exists and is active
+            user = self.get_user_by_id(user_id)
+            if not user or not user.is_active():
+                return {'success': False, 'error': 'User not found or not active'}
+
+            # Get current preferences
+            current_sources = self.get_user_source_preferences(user_id)
+
+            # Check limit
+            if len(current_sources) >= 3:
+                return {'success': False, 'error': 'Maximum 3 news sources allowed per user'}
+
+            # Check if already added
+            if source_name in current_sources:
+                return {'success': False, 'error': 'News source already in your preferences'}
+
+            # Load preferences file
+            prefs_file = os.path.join(self.data_dir, 'user_preferences.json')
+            prefs = {}
+            if os.path.exists(prefs_file):
+                with open(prefs_file, 'r', encoding='utf-8') as f:
+                    prefs = json.load(f)
+
+            # Initialize user preferences if not exists
+            if user_id not in prefs:
+                prefs[user_id] = {'enabled_sources': []}
+
+            # Add source preference
+            prefs[user_id]['enabled_sources'].append(source_name)
+
+            # Save preferences
+            with open(prefs_file, 'w', encoding='utf-8') as f:
+                json.dump(prefs, f, indent=2, ensure_ascii=False)
+
+            # Log action
+            self.log_audit_event("source_preference_added", user_id,
+                               details={'source_name': source_name})
+
+            return {'success': True, 'source_name': source_name}
+
+        except Exception as e:
+            logger.error(f"Error adding user source preference: {e}")
+            return {'success': False, 'error': 'Failed to add news source preference'}
+
+    def remove_user_source_preference(self, user_id: str, source_name: str) -> Dict[str, Any]:
+        """Remove a news source preference for a user"""
+        try:
+            # Load preferences file
+            prefs_file = os.path.join(self.data_dir, 'user_preferences.json')
+            if not os.path.exists(prefs_file):
+                return {'success': False, 'error': 'No preferences found'}
+
+            with open(prefs_file, 'r', encoding='utf-8') as f:
+                prefs = json.load(f)
+
+            if user_id not in prefs or source_name not in prefs[user_id].get('enabled_sources', []):
+                return {'success': False, 'error': 'Source preference not found'}
+
+            # Remove source preference
+            prefs[user_id]['enabled_sources'].remove(source_name)
+
+            # Save preferences
+            with open(prefs_file, 'w', encoding='utf-8') as f:
+                json.dump(prefs, f, indent=2, ensure_ascii=False)
+
+            # Log action
+            self.log_audit_event("source_preference_removed", user_id,
+                               details={'source_name': source_name})
+
+            return {'success': True, 'source_name': source_name}
+
+        except Exception as e:
+            logger.error(f"Error removing user source preference: {e}")
+            return {'success': False, 'error': 'Failed to remove news source preference'}
+
+    # Legacy User News Source Management Methods (Keep for compatibility)
 
     def add_user_source(self, user_id: str, name: str, url: str, category: str = "general") -> Dict[str, Any]:
         """Add a news source for a specific user"""

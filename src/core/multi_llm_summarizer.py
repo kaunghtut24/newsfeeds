@@ -274,8 +274,13 @@ class MultiLLMSummarizer:
         for i, item in enumerate(news_items):
             print(f"Summarizing {i+1}/{len(news_items)}: {item['title'][:50]}...")
 
-            # Get text to summarize (prioritize full_text, fallback to title)
-            text_to_summarize = item.get('full_text') or f"Title: {item['title']}\nSource: {item['source']}"
+            # Get text to summarize with content validation
+            full_text = item.get('full_text', '')
+            rss_summary = item.get('rss_summary', '')
+            title = item.get('title', '')
+
+            # Validate content quality
+            text_to_summarize = self._get_best_content_for_summarization(full_text, rss_summary, title, item.get('source', ''))
 
             # Truncate text if too long to prevent token overflow
             if len(text_to_summarize) > max_text_length:
@@ -328,6 +333,74 @@ class MultiLLMSummarizer:
                 await asyncio.sleep(batch_delay)
 
         return summarized_items
+
+    def _get_best_content_for_summarization(self, full_text: str, rss_summary: str, title: str, source: str) -> str:
+        """
+        Determine the best content to use for summarization by validating content quality
+        """
+        # Template/navigation content indicators
+        template_indicators = [
+            'generic website template',
+            'thomson reuters',
+            'products & services',
+            'press release details',
+            'about thomson reuters',
+            'cookie policy',
+            'privacy policy',
+            'terms of service',
+            'subscribe to newsletter',
+            'follow us on',
+            'contact us',
+            'all rights reserved',
+            'copyright',
+            'navigation menu',
+            'site map',
+            'home page',
+            'login',
+            'register',
+            'search',
+            'browse categories'
+        ]
+
+        def is_template_content(text: str) -> bool:
+            """Check if text appears to be template/navigation content"""
+            if not text or len(text.strip()) < 50:
+                return True
+
+            text_lower = text.lower()
+
+            # Count template indicators
+            indicator_count = sum(1 for indicator in template_indicators if indicator in text_lower)
+
+            # If more than 2 template indicators, likely template content
+            if indicator_count > 2:
+                return True
+
+            # Check for very short sentences (navigation-like)
+            sentences = text.split('.')
+            short_sentences = sum(1 for s in sentences if len(s.strip()) < 20)
+            if len(sentences) > 0 and short_sentences / len(sentences) > 0.7:
+                return True
+
+            return False
+
+        # Evaluate full_text
+        if full_text and not is_template_content(full_text):
+            print(f"  ✅ Using full text content ({len(full_text)} chars)")
+            return full_text
+        elif full_text:
+            print(f"  ⚠️ Full text appears to be template content, checking alternatives")
+
+        # Evaluate RSS summary
+        if rss_summary and not is_template_content(rss_summary):
+            print(f"  ✅ Using RSS summary content ({len(rss_summary)} chars)")
+            return f"Title: {title}\n\nContent: {rss_summary}\n\nSource: {source}"
+        elif rss_summary:
+            print(f"  ⚠️ RSS summary also appears to be template content")
+
+        # Last resort: create structured content from title
+        print(f"  📝 Using title-based content as fallback")
+        return f"News Article Title: {title}\nSource: {source}\n\nNote: Full article content was not accessible for detailed summarization. Please refer to the original source for complete information."
 
     def _create_fallback_summary(self, item):
         """Create a basic summary when LLM providers fail"""

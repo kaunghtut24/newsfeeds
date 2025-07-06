@@ -1,0 +1,20 @@
+{
+  "user_limits": {
+    "max_sources_per_user": 10,
+    "max_articles_per_source": 5,
+    "fetch_interval_minutes": 30,
+    "max_fetch_requests_per_hour": 10,
+    "max_custom_sources_per_user": 5
+  },
+  "system_settings": {
+    "auto_add_user_sources_to_global": true,
+    "require_admin_approval_for_custom_sources": true,
+    "enable_user_fetch_scheduling": true,
+    "default_fetch_interval_minutes": 30,
+    "max_global_sources": 50,
+    "enable_source_quality_scoring": true,
+    "default_user_source": "BBC News"
+  },
+  "last_updated": "2025-07-06T20:05:59.011088",
+  "version": "1.0"
+}

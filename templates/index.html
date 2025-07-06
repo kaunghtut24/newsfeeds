@@ -86,6 +86,44 @@
             text-decoration: none;
         }
 
+        .user-guidance {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border: 2px dashed #dee2e6;
+            border-radius: 12px;
+            padding: 30px;
+            margin: 20px 0;
+            text-align: center;
+        }
+
+        .guidance-content {
+            max-width: 500px;
+            margin: 0 auto;
+        }
+
+        .guidance-icon {
+            font-size: 48px;
+            margin-bottom: 15px;
+        }
+
+        .guidance-content h4 {
+            color: #495057;
+            margin-bottom: 10px;
+            font-size: 24px;
+        }
+
+        .guidance-content p {
+            color: #6c757d;
+            margin-bottom: 20px;
+            font-size: 16px;
+        }
+
+        .guidance-actions {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
         .sidebar-toggle {
             background: var(--bg-sidebar);
             border: 1px solid var(--color-gray-600);
@@ -271,6 +309,201 @@
             font-weight: 500;
         }
 
+        /* User Sources Section */
+        .user-sources-list {
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .user-source-item {
+            background-color: #f8f9fa;
+            border: 1px solid #e1e5e9;
+            border-radius: 6px;
+            padding: 10px;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .user-source-info h5 {
+            margin: 0 0 2px 0;
+            font-size: 14px;
+            color: #333;
+        }
+
+        .user-source-info .source-category {
+            font-size: 11px;
+            color: #666;
+            background-color: #e9ecef;
+            padding: 2px 6px;
+            border-radius: 3px;
+        }
+
+        .user-source-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .user-sources-info {
+            background-color: #e3f2fd;
+            border: 1px solid #bbdefb;
+            border-radius: 6px;
+            padding: 8px;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+
+        .user-sources-info p {
+            margin: 0;
+            font-weight: 600;
+            color: #1976d2;
+        }
+
+        /* Source Selector Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+
+        .modal-header {
+            background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+            color: white;
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-header h3 {
+            margin: 0;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-body {
+            padding: 20px;
+            max-height: 50vh;
+            overflow-y: auto;
+        }
+
+        .modal-footer {
+            padding: 20px;
+            border-top: 1px solid #e1e5e9;
+            text-align: right;
+        }
+
+        .source-selector-list {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .source-selector-item {
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+            padding: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.3s ease;
+        }
+
+        .source-selector-item:hover {
+            border-color: #007bff;
+            background-color: #f8f9fa;
+        }
+
+        .source-selector-item.selected {
+            border-color: #28a745;
+            background-color: #d4edda;
+        }
+
+        .source-selector-item .source-info h4 {
+            margin: 0 0 5px 0;
+            color: #333;
+        }
+
+        .source-selector-item .source-description {
+            margin: 0 0 5px 0;
+            color: #666;
+            font-size: 14px;
+        }
+
+        .source-selector-item .source-category {
+            background-color: #007bff;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+
+        /* User Guidance Styles */
+        .guidance-steps {
+            background-color: #f8f9fa;
+            border: 1px solid #e1e5e9;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: left;
+        }
+
+        .guidance-steps h4 {
+            margin: 0 0 15px 0;
+            color: #333;
+            font-size: 18px;
+        }
+
+        .guidance-steps ol {
+            margin: 0;
+            padding-left: 20px;
+        }
+
+        .guidance-steps li {
+            margin-bottom: 8px;
+            color: #555;
+            font-size: 14px;
+        }
+
+        .empty-state-actions {
+            margin-top: 20px;
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
         .btn-xs {
             padding: 0.25rem 0.5rem;
             font-size: 0.75rem;
@@ -454,10 +687,10 @@
                     <div id="userInfo" class="user-info">
                         <span id="userWelcome" class="user-welcome">Welcome, Guest</span>
                         <div class="user-actions">
-                            <a href="/dashboard" id="dashboardLink" class="user-link" style="display: none;">Dashboard</a>
-                            <a href="/admin" id="adminLink" class="user-link" style="display: none;">Admin</a>
-                            <a href="/login" id="loginLink" class="user-link">Login</a>
-                            <a href="/api/auth/logout" id="logoutLink" class="user-link" style="display: none;">Logout</a>
+                            <a href="/dashboard" id="dashboardLink" class="user-link" style="display: none;">👤 Dashboard</a>
+                            <a href="/admin" id="adminLink" class="user-link" style="display: none;">🔧 Admin</a>
+                            <a href="/login" id="loginLink" class="user-link">🔑 Login</a>
+                            <a href="/api/auth/logout" id="logoutLink" class="user-link" style="display: none;">🚪 Logout</a>
                         </div>
                     </div>
                 </div>
@@ -471,12 +704,12 @@
                 </div>
             </div>
 
-            <!-- News Sources Section -->
-            <div class="sidebar-section">
-                <h3>📡 News Sources</h3>
+            <!-- News Sources Section - Admin Only -->
+            <div class="sidebar-section" id="adminSourcesSection" style="display: none;">
+                <h3>📡 Global Sources (Admin)</h3>
                 <div class="mb-3">
                     <div class="d-flex justify-content-between align-items-center mb-2">
-                        <span class="form-label">Select Sources to Fetch:</span>
+                        <span class="form-label">Global Sources Management:</span>
                         <button onclick="app.toggleAllSources()" class="btn btn-secondary btn-xs" id="toggleAllBtn">
                             Toggle All
                         </button>
@@ -487,7 +720,7 @@
                 <!-- Collapsible Add Source Section -->
                 <details class="add-source-section">
                     <summary class="form-label" style="cursor: pointer; margin-bottom: 0.5rem;">
-                        ➕ Add New Source
+                        ➕ Add Global Source
                     </summary>
                     <div class="mb-3">
                         <label for="sourceName" class="form-label">Source Name:</label>
@@ -498,9 +731,32 @@
                         <input type="text" id="sourceUrl" class="form-input" placeholder="e.g., https://example.com/feed.xml">
                     </div>
                     <button onclick="addSource()" class="btn btn-primary btn-sm">
-                        ➕ Add Source
+                        ➕ Add Global Source
                     </button>
                 </details>
+            </div>
+
+            <!-- User Source Management Section -->
+            <div class="sidebar-section" id="userSourcesSection" style="display: none;">
+                <h3>📰 My News Sources</h3>
+                <div class="user-sources-info">
+                    <p class="small text-muted mb-2">
+                        <span id="userSourceCount">0</span>/<span id="maxUserSources">6</span> sources selected
+                    </p>
+                </div>
+
+                <div id="userSourcesList" class="user-sources-list mb-3">
+                    <!-- Will be populated by JavaScript -->
+                </div>
+
+                <div class="user-source-actions">
+                    <button onclick="app.openSourceSelector()" class="btn btn-primary btn-sm w-100 mb-2" id="selectSourcesBtn">
+                        📋 Select Sources
+                    </button>
+                    <button onclick="app.goToDashboard()" class="btn btn-secondary btn-sm w-100">
+                        ⚙️ Manage in Dashboard
+                    </button>
+                </div>
             </div>
 
             <!-- Multi-LLM Provider Section -->
@@ -890,6 +1146,23 @@
                     </div>
                 </div>
 
+                <!-- User Guidance Section -->
+                <div id="userGuidance" class="user-guidance" style="display: none;">
+                    <div class="guidance-content">
+                        <div class="guidance-icon">📰</div>
+                        <h4>Welcome to Your Personal News Feed!</h4>
+                        <p id="guidanceMessage">Loading your personalized news...</p>
+                        <div class="guidance-actions" id="guidanceActions" style="display: none;">
+                            <a href="/dashboard" class="btn btn-primary">
+                                📊 Go to Dashboard
+                            </a>
+                            <button onclick="window.location.reload()" class="btn btn-secondary">
+                                🔄 Refresh
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
                 <div id="newsList">
                     <div class="empty-state">
                         <div class="empty-icon">📰</div>
@@ -1081,6 +1354,64 @@
             document.getElementById('logoutLink').style.display = 'none';
             document.getElementById('dashboardLink').style.display = 'none';
             document.getElementById('adminLink').style.display = 'none';
+        }
+
+        // User guidance functions
+        function showUserGuidance(message, showActions = false) {
+            const guidance = document.getElementById('userGuidance');
+            const messageEl = document.getElementById('guidanceMessage');
+            const actionsEl = document.getElementById('guidanceActions');
+
+            messageEl.textContent = message;
+            actionsEl.style.display = showActions ? 'flex' : 'none';
+            guidance.style.display = 'block';
+        }
+
+        function hideUserGuidance() {
+            document.getElementById('userGuidance').style.display = 'none';
+        }
+
+        // Override the app's news loading to show user guidance
+        if (window.app && window.app.loadNews) {
+            const originalLoadNews = window.app.loadNews;
+            window.app.loadNews = async function() {
+                try {
+                    const response = await fetch('/api/news');
+                    const data = await response.json();
+
+                    if (data.success && data.user_specific === false) {
+                        // Admin user - show normal news
+                        hideUserGuidance();
+                        return originalLoadNews.call(this);
+                    } else if (data.success && data.articles && data.articles.length > 0) {
+                        // User has news from their sources
+                        hideUserGuidance();
+                        return originalLoadNews.call(this);
+                    } else if (data.message && data.message.includes('No news sources configured')) {
+                        // User has no sources configured
+                        showUserGuidance(
+                            'You haven\'t configured any news sources yet. Go to your dashboard to add your first news source!',
+                            true
+                        );
+                        return;
+                    } else if (data.message && data.message.includes('No enabled news sources')) {
+                        // User has sources but none enabled
+                        showUserGuidance(
+                            'All your news sources are disabled. Go to your dashboard to enable them!',
+                            true
+                        );
+                        return;
+                    } else {
+                        // Other cases
+                        hideUserGuidance();
+                        return originalLoadNews.call(this);
+                    }
+                } catch (error) {
+                    console.error('Error in enhanced loadNews:', error);
+                    hideUserGuidance();
+                    return originalLoadNews.call(this);
+                }
+            };
         }
     </script>
 </body>

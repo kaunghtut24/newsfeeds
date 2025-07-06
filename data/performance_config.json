@@ -1,0 +1,72 @@
+{
+  "profiles": {
+    "minimal": {
+      "name": "minimal",
+      "max_articles_per_source": 2,
+      "batch_size": 1,
+      "batch_delay": 0.1,
+      "max_text_length": 1000,
+      "max_concurrent_sources": 1,
+      "timeout_per_article": 10,
+      "max_retries": 1,
+      "enable_parallel_processing": false
+    },
+    "fast": {
+      "name": "fast",
+      "max_articles_per_source": 3,
+      "batch_size": 2,
+      "batch_delay": 0.2,
+      "max_text_length": 1500,
+      "max_concurrent_sources": 1,
+      "timeout_per_article": 15,
+      "max_retries": 1,
+      "enable_parallel_processing": false
+    },
+    "balanced": {
+      "name": "balanced",
+      "max_articles_per_source": 5,
+      "batch_size": 3,
+      "batch_delay": 0.5,
+      "max_text_length": 2000,
+      "max_concurrent_sources": 2,
+      "timeout_per_article": 30,
+      "max_retries": 2,
+      "enable_parallel_processing": true
+    },
+    "comprehensive": {
+      "name": "comprehensive",
+      "max_articles_per_source": 10,
+      "batch_size": 5,
+      "batch_delay": 1.0,
+      "max_text_length": 3000,
+      "max_concurrent_sources": 3,
+      "timeout_per_article": 45,
+      "max_retries": 3,
+      "enable_parallel_processing": true
+    },
+    "power_user": {
+      "name": "power_user",
+      "max_articles_per_source": 15,
+      "batch_size": 8,
+      "batch_delay": 1.5,
+      "max_text_length": 4000,
+      "max_concurrent_sources": 4,
+      "timeout_per_article": 60,
+      "max_retries": 3,
+      "enable_parallel_processing": true
+    }
+  },
+  "auto_optimization": {
+    "enabled": true,
+    "performance_threshold_seconds": 60,
+    "auto_downgrade_on_timeout": true,
+    "auto_upgrade_on_fast_completion": true,
+    "min_requests_for_optimization": 5
+  },
+  "system_limits": {
+    "max_total_articles_per_request": 100,
+    "max_processing_time_minutes": 10,
+    "emergency_timeout_minutes": 15
+  },
+  "last_updated": "2025-07-06T20:45:00.000000"
+}

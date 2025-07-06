@@ -11,6 +11,8 @@ class NewsFeedApp {
         this.itemsPerPage = 8;
         this.isProcessing = false;
         this.debugMode = true; // Enable debug logging
+        this.currentUser = null;
+        this.userSourcePreferences = [];
 
         this.debug('🚀 NewsFeedApp constructor called');
         this.init();
@@ -335,6 +337,8 @@ class NewsFeedApp {
     // Initial Data Loading
     async loadInitialData() {
         try {
+            await this.loadUserProfile();
+            await this.setupRoleBasedUI();
             await this.loadConfig();
             await this.loadNews();
             await this.loadSources();
@@ -342,6 +346,271 @@ class NewsFeedApp {
             this.showToast('Failed to load initial data', 'error');
             console.error('Initial data loading error:', error);
         }
+    }
+
+    // User Profile Loading
+    async loadUserProfile() {
+        try {
+            const response = await fetch('/api/user/profile');
+            const data = await response.json();
+
+            if (data.success) {
+                this.currentUser = data.user;
+                this.debug('👤 User profile loaded', this.currentUser);
+            } else {
+                console.error('Failed to load user profile:', data.error);
+            }
+        } catch (error) {
+            console.error('Error loading user profile:', error);
+        }
+    }
+
+    // Setup UI based on user role
+    async setupRoleBasedUI() {
+        if (!this.currentUser) return;
+
+        const adminSection = document.getElementById('adminSourcesSection');
+        const userSection = document.getElementById('userSourcesSection');
+
+        if (this.currentUser.role === 'admin') {
+            // Show admin sources section
+            if (adminSection) adminSection.style.display = 'block';
+            if (userSection) userSection.style.display = 'none';
+        } else {
+            // Show user sources section
+            if (adminSection) adminSection.style.display = 'none';
+            if (userSection) userSection.style.display = 'block';
+
+            // Load user's source preferences
+            await this.loadUserSourcePreferences();
+        }
+    }
+
+    // Load user's source preferences
+    async loadUserSourcePreferences() {
+        try {
+            const response = await fetch('/api/user/source-preferences');
+            const data = await response.json();
+
+            if (data.success) {
+                this.userSourcePreferences = data.source_details || [];
+                // Store the dynamic limits from admin settings
+                this.maxSources = data.max_allowed || 6; // Default to 6 if not provided
+                this.updateUserSourcesDisplay();
+                this.debug('📋 User source preferences loaded', this.userSourcePreferences);
+                this.debug('📋 Max sources limit from admin:', this.maxSources);
+            } else {
+                console.error('Failed to load user source preferences:', data.error);
+            }
+        } catch (error) {
+            console.error('Error loading user source preferences:', error);
+        }
+    }
+
+    // Update user sources display in sidebar
+    updateUserSourcesDisplay() {
+        const countEl = document.getElementById('userSourceCount');
+        const maxCountEl = document.getElementById('maxUserSources');
+        const listEl = document.getElementById('userSourcesList');
+        const btnEl = document.getElementById('selectSourcesBtn');
+
+        if (countEl) {
+            countEl.textContent = this.userSourcePreferences.length;
+        }
+
+        // Update the max sources display with dynamic limit
+        if (maxCountEl) {
+            const maxSources = this.maxSources || 6; // Use dynamic limit or default
+            maxCountEl.textContent = maxSources;
+        }
+
+        if (listEl) {
+            if (this.userSourcePreferences.length === 0) {
+                listEl.innerHTML = `
+                    <div class="text-center text-muted small">
+                        <p>No sources selected yet</p>
+                        <p>Click "Select Sources" to get started</p>
+                    </div>
+                `;
+            } else {
+                const sourcesHtml = this.userSourcePreferences.map(source => `
+                    <div class="user-source-item">
+                        <div class="user-source-info">
+                            <h5>${source.name}</h5>
+                            <span class="source-category">${source.category}</span>
+                        </div>
+                        <button onclick="app.removeUserSource('${source.name}')"
+                                class="btn btn-danger btn-xs">
+                            ×
+                        </button>
+                    </div>
+                `).join('');
+
+                listEl.innerHTML = sourcesHtml;
+            }
+        }
+
+        if (btnEl) {
+            // Use dynamic max sources from admin settings
+            const maxSources = this.maxSources || 6; // Use dynamic limit or default
+            if (this.userSourcePreferences.length >= maxSources) {
+                btnEl.disabled = true;
+                btnEl.textContent = `📋 Limit Reached (${this.userSourcePreferences.length}/${maxSources})`;
+            } else {
+                btnEl.disabled = false;
+                btnEl.textContent = '📋 Select Sources';
+            }
+        }
+    }
+
+    // Open source selector modal
+    async openSourceSelector() {
+        try {
+            const response = await fetch('/api/sources');
+            const data = await response.json();
+
+            if (data.success) {
+                this.showSourceSelectorModal(data.sources);
+            } else {
+                this.showToast('Failed to load available sources', 'error');
+            }
+        } catch (error) {
+            console.error('Error loading sources:', error);
+            this.showToast('Error loading available sources', 'error');
+        }
+    }
+
+    // Show source selector modal
+    showSourceSelectorModal(sources) {
+        const modalHtml = `
+            <div class="modal-overlay" id="sourceSelectorModal">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3>📋 Select News Sources</h3>
+                        <button onclick="app.closeSourceSelector()" class="modal-close">×</button>
+                    </div>
+                    <div class="modal-body">
+                        <p>Choose from available news sources (up to 3 sources):</p>
+                        <div class="source-selector-list">
+                            ${sources.map(source => `
+                                <div class="source-selector-item ${source.user_selected ? 'selected' : ''}">
+                                    <div class="source-info">
+                                        <h4>${source.name}</h4>
+                                        <p class="source-description">${source.description}</p>
+                                        <span class="source-category">${source.category}</span>
+                                    </div>
+                                    <div class="source-actions">
+                                        ${source.user_selected ?
+                                            `<button onclick="app.removeUserSource('${source.name}')"
+                                                    class="btn btn-danger btn-sm">Remove</button>` :
+                                            `<button onclick="app.addUserSource('${source.name}')"
+                                                    class="btn btn-success btn-sm">Add</button>`
+                                        }
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button onclick="app.closeSourceSelector()" class="btn btn-secondary">Close</button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // Add modal to page
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+    }
+
+    // Close source selector modal
+    closeSourceSelector() {
+        const modal = document.getElementById('sourceSelectorModal');
+        if (modal) {
+            modal.remove();
+        }
+    }
+
+    // Add user source preference
+    async addUserSource(sourceName) {
+        try {
+            const response = await fetch('/api/user/source-preferences', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ source_name: sourceName })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                // Show enhanced feedback based on API response
+                if (data.message) {
+                    this.showToast(data.message, 'success');
+                } else {
+                    this.showToast(`Added ${sourceName} to your sources!`, 'success');
+                }
+
+                await this.loadUserSourcePreferences();
+                this.closeSourceSelector();
+
+                // Reload news to show updated feed
+                await this.loadNews();
+
+                // Refresh AI Features Dashboard to reflect new source data
+                await this.refreshAIFeatures();
+
+                // Show additional guidance if news fetch is needed
+                if (data.needs_fetch) {
+                    setTimeout(() => {
+                        this.showToast('💡 Click "Fetch News" to get the latest articles from your new source!', 'info');
+                    }, 2000);
+                }
+            } else {
+                this.showToast('Failed to add source: ' + data.error, 'error');
+            }
+        } catch (error) {
+            console.error('Error adding source preference:', error);
+            this.showToast('Error adding source', 'error');
+        }
+    }
+
+    // Remove user source preference
+    async removeUserSource(sourceName) {
+        try {
+            const response = await fetch(`/api/user/source-preferences/${sourceName}`, {
+                method: 'DELETE'
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                this.showToast(`Removed ${sourceName} from your sources!`, 'success');
+                await this.loadUserSourcePreferences();
+                // Reload news to show updated feed
+                await this.loadNews();
+
+                // Refresh AI Features Dashboard to reflect removed source data
+                await this.refreshAIFeatures();
+
+                // Refresh source selector if open
+                const modal = document.getElementById('sourceSelectorModal');
+                if (modal) {
+                    this.closeSourceSelector();
+                    await this.openSourceSelector();
+                }
+            } else {
+                this.showToast('Failed to remove source: ' + data.error, 'error');
+            }
+        } catch (error) {
+            console.error('Error removing source preference:', error);
+            this.showToast('Error removing source', 'error');
+        }
+    }
+
+    // Go to dashboard
+    goToDashboard() {
+        window.location.href = '/dashboard';
     }
 
     // News Operations
@@ -552,22 +821,33 @@ class NewsFeedApp {
         if (newsList) {
             newsList.innerHTML = this.createSkeletonLoader();
         }
-        
+
         try {
             const response = await fetch('/api/news');
             const data = await response.json();
-            
-            if (data.success && data.news.length > 0) {
-                this.allNewsData = data.news;
+
+            this.debug('📰 News API response:', data);
+
+            // Handle both 'news' and 'articles' properties for compatibility
+            const articles = data.news || data.articles || [];
+
+            if (data.success && articles.length > 0) {
+                this.allNewsData = articles;
                 this.populateCategories(this.allNewsData);
                 this.currentPage = 1;
                 this.displayFilteredNews();
-                this.showToast(`Loaded ${data.news.length} news articles`, 'success');
+                this.showToast(`Loaded ${articles.length} news articles`, 'success');
+            } else if (data.success && data.message) {
+                // Handle user guidance messages
+                if (newsList) {
+                    newsList.innerHTML = this.createUserGuidanceState(data.message, data.guidance);
+                }
+                this.showToast(data.message, 'info');
             } else {
                 if (newsList) {
                     newsList.innerHTML = this.createEmptyState();
                 }
-                this.showToast('No news available. Please fetch news first.', 'info');
+                this.showToast('No news available. Please configure your sources.', 'info');
             }
         } catch (error) {
             if (newsList) {
@@ -576,6 +856,41 @@ class NewsFeedApp {
             this.showToast(`Error loading news: ${error.message}`, 'error');
             console.error('Load news error:', error);
         }
+    }
+
+    // Create user guidance state
+    createUserGuidanceState(message, guidance) {
+        let guidanceHtml = '';
+
+        if (guidance && guidance.steps) {
+            guidanceHtml = `
+                <div class="guidance-steps">
+                    <h4>${guidance.title || 'Getting Started'}</h4>
+                    <ol>
+                        ${guidance.steps.map(step => `<li>${step}</li>`).join('')}
+                    </ol>
+                </div>
+            `;
+        }
+
+        return `
+            <div class="empty-state">
+                <div class="empty-state-icon">📰</div>
+                <h3>Welcome to Your Personalized News Feed!</h3>
+                <p>${message}</p>
+                ${guidanceHtml}
+                <div class="empty-state-actions">
+                    <button onclick="app.goToDashboard()" class="btn btn-primary">
+                        ⚙️ Go to Dashboard
+                    </button>
+                    ${this.currentUser && this.currentUser.role !== 'admin' ?
+                        `<button onclick="app.openSourceSelector()" class="btn btn-secondary">
+                            📋 Select Sources
+                        </button>` : ''
+                    }
+                </div>
+            </div>
+        `;
     }
 
     // Search functionality
@@ -814,14 +1129,19 @@ class NewsFeedApp {
             const sourceItem = document.createElement('div');
             sourceItem.className = 'source-checkbox-item';
 
+            // Use the correct enabled state for admin
+            const isEnabled = source.enabled_globally !== undefined ? source.enabled_globally : true;
+            const sourceType = source.type || 'rss';
+            const sourceCategory = source.category || 'General';
+
             sourceItem.innerHTML = `
                 <input type="checkbox"
                        id="source-${source.name}"
-                       ${source.enabled ? 'checked' : ''}
+                       ${isEnabled ? 'checked' : ''}
                        onchange="app.toggleSource('${source.name}', this.checked)">
                 <label for="source-${source.name}">
                     <div>${source.name}</div>
-                    <div class="source-info">${source.type.toUpperCase()} • ${source.category}</div>
+                    <div class="source-info">${sourceType.toUpperCase()} • ${sourceCategory}</div>
                 </label>
                 <div class="source-actions">
                     <button onclick="app.editSource('${source.name}', '${source.url}')"
@@ -1011,25 +1331,26 @@ class NewsFeedApp {
 
     async deleteSource(sourceName) {
         try {
-            const confirmed = confirm(`Are you sure you want to delete the source "${sourceName}"?`);
+            const confirmed = confirm(`Are you sure you want to delete the source "${sourceName}"?\n\nThis will remove it from all users and cannot be undone.`);
             if (!confirmed) {
                 return;
             }
 
-            const response = await fetch('/api/sources/delete', {
-                method: 'POST',
+            // Use the new admin delete endpoint
+            const response = await fetch(`/api/admin/sources/${encodeURIComponent(sourceName)}`, {
+                method: 'DELETE',
                 headers: {
                     'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    source_name: sourceName
-                })
+                }
             });
 
             const data = await response.json();
 
             if (data.success) {
                 this.showToast(`Source "${sourceName}" deleted successfully`, 'success');
+                if (data.details && data.details.affected_users_count > 0) {
+                    this.showToast(`Removed from ${data.details.affected_users_count} user(s)`, 'info');
+                }
                 await this.loadSources();
             } else {
                 this.showToast(`Failed to delete source: ${data.error}`, 'error');
@@ -2217,6 +2538,33 @@ class NewsFeedApp {
         } catch (error) {
             console.error('Error loading AI features status:', error);
             // Don't show error to user as this is not critical
+        }
+    }
+
+    async refreshAIFeatures() {
+        try {
+            this.debug('🔄 Refreshing AI Features Dashboard after source changes...');
+
+            // Refresh Content Insights
+            await this.loadContentInsights();
+
+            // Refresh Trending Analysis
+            await this.loadTrendingAnalysis();
+
+            // If AI Features Dashboard is currently visible, refresh its active tab
+            const aiDashboard = document.getElementById('aiFeaturesDashboard');
+            if (aiDashboard && aiDashboard.style.display !== 'none') {
+                const activeTab = document.querySelector('.ai-tab-btn.active');
+                if (activeTab) {
+                    const tabName = activeTab.dataset.tab;
+                    this.debug(`🔄 Refreshing active AI tab: ${tabName}`);
+                    await this.switchAITab(tabName);
+                }
+            }
+
+            this.debug('✅ AI Features Dashboard refreshed successfully');
+        } catch (error) {
+            console.error('Error refreshing AI features:', error);
         }
     }
 

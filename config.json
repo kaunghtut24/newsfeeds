@@ -1,13 +1,111 @@
 {
-    "news_sources": {
-        "Times of India": "https://timesofindia.indiatimes.com/rssfeeds/1898055.cms",
-        "BBC News": "https://feeds.bbci.co.uk/news/business/rss.xml",
-        "Businessline": "https://www.thehindubusinessline.com/economy/feeder/default.rss",
-        "The Hindu": "https://www.thehindu.com/business/feeder/default.rss",
-        "hackernews": "https://hnrss.org/frontpage",
-        "reddit_programming": "https://www.reddit.com/r/programming/.rss",
-        "reddit_technology": "https://www.reddit.com/r/technology/.rss",
-        "techcrunch": "https://techcrunch.com/feed/"
+  "news_sources": {
+    "Times of India": "https://timesofindia.indiatimes.com/rssfeeds/1898055.cms",
+    "BBC News": "https://feeds.bbci.co.uk/news/business/rss.xml",
+    "Businessline": "https://www.thehindubusinessline.com/economy/feeder/default.rss",
+    "The Hindu": "https://www.thehindu.com/business/feeder/default.rss",
+    "hackernews": "https://hnrss.org/frontpage",
+    "reddit_programming": "https://www.reddit.com/r/programming/.rss",
+    "reddit_technology": "https://www.reddit.com/r/technology/.rss",
+    "techcrunch": "https://techcrunch.com/feed/",
+    "ABC News Top Stories": {
+      "added_at": "2025-07-06T19:12:55.438807",
+      "added_by_user": true,
+      "category": "General",
+      "type": "rss",
+      "url": "https://abcnews.go.com/abcnews/topstories"
     },
-    "ollama_model": "llama3:8b"
+    "TechCrunch RSS": {
+      "url": "https://techcrunch.com/feed/",
+      "category": "technology",
+      "type": "rss",
+      "added_by_user": true,
+      "added_at": "2025-07-06T20:07:20.100694"
+    },
+    "BBC World News": {
+      "url": "http://feeds.bbci.co.uk/news/world/rss.xml",
+      "category": "World News"
+    },
+    "Al Jazeera English": {
+      "url": "https://www.aljazeera.com/xml/rss/all.xml",
+      "category": "World News"
+    },
+    "Guardian World": {
+      "url": "https://www.theguardian.com/world/rss",
+      "category": "World News"
+    },
+    "CNN World": {
+      "url": "http://rss.cnn.com/rss/edition.rss",
+      "category": "World News"
+    },
+    "NPR World": {
+      "url": "https://feeds.npr.org/1004/rss.xml",
+      "category": "World News"
+    },
+    "BBC Business": {
+      "url": "http://feeds.bbci.co.uk/news/business/rss.xml",
+      "category": "Business"
+    },
+    "Guardian Business": {
+      "url": "https://www.theguardian.com/business/rss",
+      "category": "Business"
+    },
+    "Financial Times": {
+      "url": "https://www.ft.com/rss/home",
+      "category": "Business"
+    },
+    "Bloomberg Markets": {
+      "url": "https://feeds.bloomberg.com/markets/news.rss",
+      "category": "Business"
+    },
+    "MarketWatch": {
+      "url": "http://feeds.marketwatch.com/marketwatch/topstories/",
+      "category": "Business"
+    },
+    "BBC Technology": {
+      "url": "http://feeds.bbci.co.uk/news/technology/rss.xml",
+      "category": "Technology"
+    },
+    "Guardian Technology": {
+      "url": "https://www.theguardian.com/technology/rss",
+      "category": "Technology"
+    },
+    "TechCrunch": {
+      "url": "https://techcrunch.com/feed/",
+      "category": "Technology"
+    },
+    "Ars Technica": {
+      "url": "http://feeds.arstechnica.com/arstechnica/index",
+      "category": "Technology"
+    },
+    "Wired": {
+      "url": "https://www.wired.com/feed/rss",
+      "category": "Technology"
+    },
+    "The Verge": {
+      "url": "https://www.theverge.com/rss/index.xml",
+      "category": "Technology"
+    },
+    "Engadget": {
+      "url": "https://www.engadget.com/rss.xml",
+      "category": "Technology"
+    },
+    "ZDNet": {
+      "url": "https://www.zdnet.com/news/rss.xml",
+      "category": "Technology"
+    },
+    "CNBC Markets": {
+      "url": "https://www.cnbc.com/id/10000664/device/rss/rss.html",
+      "category": "Market"
+    },
+    "WSJ Markets": {
+      "url": "https://feeds.a.dj.com/rss/RSSMarketsMain.xml",
+      "category": "Market"
+    },
+    "Seeking Alpha": {
+      "url": "https://seekingalpha.com/feed.xml",
+      "category": "Market"
+    }
+  },
+  "ollama_model": "llama3:8b"
 }

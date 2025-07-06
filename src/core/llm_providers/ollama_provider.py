@@ -99,9 +99,17 @@ class OllamaProvider(BaseLLMProvider):
 
         start_time = time.time()
 
-        # Create prompt for summarization
-        prompt = f"""Read this news article and write a 2-3 sentence summary. Do not include any introductory phrases like "Here is" or "This is". Do not use thinking tags like <think> or show your reasoning process. Start directly with the facts:
+        # Create enhanced prompt for summarization
+        prompt = f"""Read this news article and write a 2-3 sentence summary.
 
+IMPORTANT INSTRUCTIONS:
+- If the content appears to be a website template, navigation menu, or generic page content (not an actual news article), respond with: "This appears to be website navigation or template content rather than a news article. Please provide the actual article content for summarization."
+- If you can identify actual news content, summarize only the factual information
+- Do not include introductory phrases like "Here is" or "This is"
+- Do not use thinking tags or show reasoning process
+- Start directly with the facts
+
+CONTENT TO ANALYZE:
 {text[:2000]}
 
 Summary:"""
@@ -207,9 +215,17 @@ Summary:"""
                 error_message="Ollama service is not available"
             )
         
-        # Prepare the prompt
-        prompt = f"""Read this news article and write a 2-3 sentence summary. Do not include any introductory phrases like "Here is" or "This is". Do not use thinking tags like <think> or show your reasoning process. Start directly with the facts:
+        # Prepare enhanced prompt for summarization
+        prompt = f"""Read this news article and write a 2-3 sentence summary.
 
+IMPORTANT INSTRUCTIONS:
+- If the content appears to be a website template, navigation menu, or generic page content (not an actual news article), respond with: "This appears to be website navigation or template content rather than a news article. Please provide the actual article content for summarization."
+- If you can identify actual news content, summarize only the factual information
+- Do not include introductory phrases like "Here is" or "This is"
+- Do not use thinking tags or show reasoning process
+- Start directly with the facts
+
+CONTENT TO ANALYZE:
 {text}
 
 Summary:"""

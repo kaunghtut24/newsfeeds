@@ -20,8 +20,18 @@ class AdminDashboard {
         const navLinks = document.querySelectorAll('.nav-link');
         navLinks.forEach(link => {
             link.addEventListener('click', (e) => {
-                e.preventDefault();
                 const section = link.dataset.section;
+                const href = link.getAttribute('href');
+
+                // Allow external navigation for links that don't have data-section
+                // or start with http/https or start with /
+                if (!section || href.startsWith('http') || href.startsWith('/')) {
+                    // Let the browser handle the navigation naturally
+                    return;
+                }
+
+                // Prevent default only for internal section navigation
+                e.preventDefault();
                 if (section) {
                     this.showSection(section);
                 }

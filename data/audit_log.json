@@ -26,5 +26,847 @@
     "user_id": "user_e3eb6aaadf5450c7",
     "target_user_id": null,
     "details": {}
+  },
+  {
+    "timestamp": "2025-07-06T15:16:39.511267",
+    "action": "user_login",
+    "user_id": "user_e3eb6aaadf5450c7",
+    "target_user_id": null,
+    "details": {}
+  },
+  {
+    "timestamp": "2025-07-06T15:17:10.398682",
+    "action": "user_login",
+    "user_id": "user_e3eb6aaadf5450c7",
+    "target_user_id": null,
+    "details": {}
+  },
+  {
+    "timestamp": "2025-07-06T15:21:27.806466",
+    "action": "user_registered",
+    "user_id": "user_0739e634c5b9c778",
+    "target_user_id": null,
+    "details": {
+      "username": "user1",
+      "email": "user1@test.com"
+    }
+  },
+  {
+    "timestamp": "2025-07-06T15:21:56.001266",
+    "action": "user_login",
+    "user_id": "user_e3eb6aaadf5450c7",
+    "target_user_id": null,
+    "details": {}
+  },
+  {
+    "timestamp": "2025-07-06T15:22:04.057812",
+    "action": "user_approved",
+    "user_id": "user_e3eb6aaadf5450c7",
+    "target_user_id": "user_0739e634c5b9c778",
+    "details": {
+      "username": "user1"
+    }
+  },
+  {
+    "timestamp": "2025-07-06T15:22:16.049034",
+    "action": "user_login",
+    "user_id": "user_e3eb6aaadf5450c7",
+    "target_user_id": null,
+    "details": {}
+  },
+  {
+    "timestamp": "2025-07-06T15:22:40.601505",
+    "action": "user_login",
+    "user_id": "user_0739e634c5b9c778",
+    "target_user_id": null,
+    "details": {}
+  },
+  {
+    "timestamp": "2025-07-06T15:24:07.212189",
+    "action": "user_login",
+    "user_id": "user_e3eb6aaadf5450c7",
+    "target_user_id": null,
+    "details": {}
+  },
+  {
+    "timestamp": "2025-07-06T15:24:57.019651",
+    "action": "user_login",
+    "user_id": "user_e3eb6aaadf5450c7",
+    "target_user_id": null,
+    "details": {}
+  },
+  {
+    "timestamp": "2025-07-06T15:25:53.120335",
+    "action": "user_login",
+    "user_id": "user_0739e634c5b9c778",
+    "target_user_id": null,
+    "details": {}
+  },
+  {
+    "timestamp": "2025-07-06T15:27:51.592459",
+    "action": "user_login",
+    "user_id": "user_0739e634c5b9c778",
+    "target_user_id": null,
+    "details": {}
+  },
+  {
+    "timestamp": "2025-07-06T15:38:35.566775",
+    "action": "user_login",
+    "user_id": "user_e3eb6aaadf5450c7",
+    "target_user_id": null,
+    "details": {}
+  },
+  {
+    "timestamp": "2025-07-06T15:39:46.673131",
+    "action": "user_login",
+    "user_id": "user_0739e634c5b9c778",
+    "target_user_id": null,
+    "details": {}
+  },
+  {
+    "timestamp": "2025-07-06T15:40:37.585350",
+    "action": "source_added",
+    "user_id": "user_0739e634c5b9c778",
+    "target_user_id": null,
+    "details": {
+      "source_name": "ABC News",
+      "url": "https://abcnews.go.com/abcnews/worldnewsheadlines"
+    }
+  },
+  {
+    "timestamp": "2025-07-06T15:41:49.556070",
+    "action": "user_login",
+    "user_id": "user_e3eb6aaadf5450c7",
+    "target_user_id": null,
+    "details": {}
+  },
+  {
+    "timestamp": "2025-07-06T15:43:34.892499",
+    "action": "user_registered",
+    "user_id": "user_f146976b46327847",
+    "target_user_id": null,
+    "details": {
+      "username": "testuser",
+      "email": "test@example.com"
+    }
+  },
+  {
+    "timestamp": "2025-07-06T15:43:58.536348",
+    "action": "user_approved",
+    "user_id": "user_e3eb6aaadf5450c7",
+    "target_user_id": "user_f146976b46327847",
+    "details": {
+      "username": "testuser"
+    }
+  },
+  {
+    "timestamp": "2025-07-06T15:44:22.001054",
+    "action": "user_login",
+    "user_id": "user_f146976b46327847",
+    "target_user_id": null,
+    "details": {}
+  },
+  {
+    "timestamp": "2025-07-06T15:45:24.244080",
+    "action": "source_added",
+    "user_id": "user_f146976b46327847",
+    "target_user_id": null,
+    "details": {
+      "source_name": "TechCrunch",
+      "url": "https://techcrunch.com/feed/"
+    }
+  },
+  {
+    "timestamp": "2025-07-06T16:01:54.895032",
+    "action": "user_login",
+    "user_id": "user_0739e634c5b9c778",
+    "target_user_id": null,
+    "details": {}
+  },
+  {
+    "timestamp": "2025-07-06T16:15:57.478821",
+    "action": "user_login",
+    "user_id": "user_e3eb6aaadf5450c7",
+    "target_user_id": null,
+    "details": {}
+  },
+  {
+    "timestamp": "2025-07-06T16:18:34.924757",
+    "action": "user_login",
+    "user_id": "user_0739e634c5b9c778",
+    "target_user_id": null,
+    "details": {}
+  },
+  {
+    "timestamp": "2025-07-06T16:29:39.479146",
+    "action": "user_login",
+    "user_id": "user_e3eb6aaadf5450c7",
+    "target_user_id": null,
+    "details": {}
+  },
+  {
+    "timestamp": "2025-07-06T16:30:31.192942",
+    "action": "user_login",
+    "user_id": "user_0739e634c5b9c778",
+    "target_user_id": null,
+    "details": {}
+  },
+  {
+    "timestamp": "2025-07-06T16:31:00.945389",
+    "action": "source_preference_added",
+    "user_id": "user_0739e634c5b9c778",
+    "target_user_id": null,
+    "details": {
+      "source_name": "BBC News"
+    }
+  },
+  {
+    "timestamp": "2025-07-06T16:31:09.825423",
+    "action": "source_preference_added",
+    "user_id": "user_0739e634c5b9c778",
+    "target_user_id": null,
+    "details": {
+      "source_name": "hackernews"
+    }
+  },
+  {
+    "timestamp": "2025-07-06T16:31:21.233692",
+    "action": "source_preference_added",
+    "user_id": "user_0739e634c5b9c778",
+    "target_user_id": null,
+    "details": {
+      "source_name": "Times of India"
+    }
+  },
+  {
+    "timestamp": "2025-07-06T16:43:50.477789",
+    "action": "user_login",
+    "user_id": "user_e3eb6aaadf5450c7",
+    "target_user_id": null,
+    "details": {}
+  },
+  {
+    "timestamp": "2025-07-06T16:44:18.885906",
+    "action": "user_login",
+    "user_id": "user_e3eb6aaadf5450c7",
+    "target_user_id": null,
+    "details": {}
+  },
+  {
+    "timestamp": "2025-07-06T16:44:59.263381",
+    "action": "user_login",
+    "user_id": "user_0739e634c5b9c778",
+    "target_user_id": null,
+    "details": {}
+  },
+  {
+    "timestamp": "2025-07-06T16:46:30.673462",
+    "action": "source_preference_removed",
+    "user_id": "user_0739e634c5b9c778",
+    "target_user_id": null,
+    "details": {
+      "source_name": "BBC News"
+    }
+  },
+  {
+    "timestamp": "2025-07-06T16:46:31.416997",
+    "action": "source_preference_removed",
+    "user_id": "user_0739e634c5b9c778",
+    "target_user_id": null,
+    "details": {
+      "source_name": "hackernews"
+    }
+  },
+  {
+    "timestamp": "2025-07-06T16:46:32.409366",
+    "action": "source_preference_removed",
+    "user_id": "user_0739e634c5b9c778",
+    "target_user_id": null,
+    "details": {
+      "source_name": "Times of India"
+    }
+  },
+  {
+    "timestamp": "2025-07-06T16:46:36.241573",
+    "action": "source_preference_added",
+    "user_id": "user_0739e634c5b9c778",
+    "target_user_id": null,
+    "details": {
+      "source_name": "Times of India"
+    }
+  },
+  {
+    "timestamp": "2025-07-06T16:46:39.697367",
+    "action": "source_preference_added",
+    "user_id": "user_0739e634c5b9c778",
+    "target_user_id": null,
+    "details": {
+      "source_name": "BBC News"
+    }
+  },
+  {
+    "timestamp": "2025-07-06T16:54:21.778830",
+    "action": "user_login",
+    "user_id": "user_e3eb6aaadf5450c7",
+    "target_user_id": null,
+    "details": {}
+  },
+  {
+    "timestamp": "2025-07-06T16:55:15.494559",
+    "action": "user_login",
+    "user_id": "user_0739e634c5b9c778",
+    "target_user_id": null,
+    "details": {}
+  },
+  {
+    "timestamp": "2025-07-06T16:55:22.639209",
+    "action": "source_preference_removed",
+    "user_id": "user_0739e634c5b9c778",
+    "target_user_id": null,
+    "details": {
+      "source_name": "Times of India"
+    }
+  },
+  {
+    "timestamp": "2025-07-06T16:55:23.454592",
+    "action": "source_preference_removed",
+    "user_id": "user_0739e634c5b9c778",
+    "target_user_id": null,
+    "details": {
+      "source_name": "BBC News"
+    }
+  },
+  {
+    "timestamp": "2025-07-06T16:55:25.094184",
+    "action": "source_preference_added",
+    "user_id": "user_0739e634c5b9c778",
+    "target_user_id": null,
+    "details": {
+      "source_name": "Times of India"
+    }
+  },
+  {
+    "timestamp": "2025-07-06T16:55:30.604524",
+    "action": "source_preference_added",
+    "user_id": "user_0739e634c5b9c778",
+    "target_user_id": null,
+    "details": {
+      "source_name": "BBC News"
+    }
+  },
+  {
+    "timestamp": "2025-07-06T16:55:35.454462",
+    "action": "source_preference_added",
+    "user_id": "user_0739e634c5b9c778",
+    "target_user_id": null,
+    "details": {
+      "source_name": "Businessline"
+    }
+  },
+  {
+    "timestamp": "2025-07-06T16:55:54.240205",
+    "action": "source_preference_removed",
+    "user_id": "user_0739e634c5b9c778",
+    "target_user_id": null,
+    "details": {
+      "source_name": "Times of India"
+    }
+  },
+  {
+    "timestamp": "2025-07-06T16:55:55.225075",
+    "action": "source_preference_removed",
+    "user_id": "user_0739e634c5b9c778",
+    "target_user_id": null,
+    "details": {
+      "source_name": "BBC News"
+    }
+  },
+  {
+    "timestamp": "2025-07-06T16:55:58.336792",
+    "action": "source_preference_removed",
+    "user_id": "user_0739e634c5b9c778",
+    "target_user_id": null,
+    "details": {
+      "source_name": "Businessline"
+    }
+  },
+  {
+    "timestamp": "2025-07-06T16:56:01.513183",
+    "action": "source_preference_added",
+    "user_id": "user_0739e634c5b9c778",
+    "target_user_id": null,
+    "details": {
+      "source_name": "Times of India"
+    }
+  },
+  {
+    "timestamp": "2025-07-06T16:57:42.910367",
+    "action": "source_preference_removed",
+    "user_id": "user_0739e634c5b9c778",
+    "target_user_id": null,
+    "details": {
+      "source_name": "Times of India"
+    }
+  },
+  {
+    "timestamp": "2025-07-06T17:00:20.714629",
+    "action": "user_login",
+    "user_id": "user_0739e634c5b9c778",
+    "target_user_id": null,
+    "details": {}
+  },
+  {
+    "timestamp": "2025-07-06T17:00:25.245882",
+    "action": "source_preference_added",
+    "user_id": "user_0739e634c5b9c778",
+    "target_user_id": null,
+    "details": {
+      "source_name": "Times of India"
+    }
+  },
+  {
+    "timestamp": "2025-07-06T17:00:34.130184",
+    "action": "user_login",
+    "user_id": "user_e3eb6aaadf5450c7",
+    "target_user_id": null,
+    "details": {}
+  },
+  {
+    "timestamp": "2025-07-06T17:00:48.235731",
+    "action": "user_login",
+    "user_id": "user_0739e634c5b9c778",
+    "target_user_id": null,
+    "details": {}
+  },
+  {
+    "timestamp": "2025-07-06T17:00:55.394376",
+    "action": "source_preference_added",
+    "user_id": "user_0739e634c5b9c778",
+    "target_user_id": null,
+    "details": {
+      "source_name": "BBC News"
+    }
+  },
+  {
+    "timestamp": "2025-07-06T17:03:55.672895",
+    "action": "source_preference_added",
+    "user_id": "user_0739e634c5b9c778",
+    "target_user_id": null,
+    "details": {
+      "source_name": "reddit_programming"
+    }
+  },
+  {
+    "timestamp": "2025-07-06T17:04:50.132948",
+    "action": "user_login",
+    "user_id": "user_0739e634c5b9c778",
+    "target_user_id": null,
+    "details": {}
+  },
+  {
+    "timestamp": "2025-07-06T17:07:39.954263",
+    "action": "user_login",
+    "user_id": "user_0739e634c5b9c778",
+    "target_user_id": null,
+    "details": {}
+  },
+  {
+    "timestamp": "2025-07-06T17:17:45.867511",
+    "action": "user_login",
+    "user_id": "user_e3eb6aaadf5450c7",
+    "target_user_id": null,
+    "details": {}
+  },
+  {
+    "timestamp": "2025-07-06T17:19:03.062678",
+    "action": "user_login",
+    "user_id": "user_0739e634c5b9c778",
+    "target_user_id": null,
+    "details": {}
+  },
+  {
+    "timestamp": "2025-07-06T17:29:49.283668",
+    "action": "user_login",
+    "user_id": "user_e3eb6aaadf5450c7",
+    "target_user_id": null,
+    "details": {}
+  },
+  {
+    "timestamp": "2025-07-06T17:32:36.144021",
+    "action": "user_login",
+    "user_id": "user_0739e634c5b9c778",
+    "target_user_id": null,
+    "details": {}
+  },
+  {
+    "timestamp": "2025-07-06T17:40:32.279467",
+    "action": "user_login",
+    "user_id": "user_e3eb6aaadf5450c7",
+    "target_user_id": null,
+    "details": {}
+  },
+  {
+    "timestamp": "2025-07-06T17:41:37.994634",
+    "action": "user_login",
+    "user_id": "user_0739e634c5b9c778",
+    "target_user_id": null,
+    "details": {}
+  },
+  {
+    "timestamp": "2025-07-06T17:53:17.520760",
+    "action": "user_login",
+    "user_id": "user_e3eb6aaadf5450c7",
+    "target_user_id": null,
+    "details": {}
+  },
+  {
+    "timestamp": "2025-07-06T17:53:59.544944",
+    "action": "user_login",
+    "user_id": "user_0739e634c5b9c778",
+    "target_user_id": null,
+    "details": {}
+  },
+  {
+    "timestamp": "2025-07-06T18:02:19.342123",
+    "action": "user_login",
+    "user_id": "user_0739e634c5b9c778",
+    "target_user_id": null,
+    "details": {}
+  },
+  {
+    "timestamp": "2025-07-06T18:09:00.403970",
+    "action": "user_login",
+    "user_id": "user_e3eb6aaadf5450c7",
+    "target_user_id": null,
+    "details": {}
+  },
+  {
+    "timestamp": "2025-07-06T18:11:16.773773",
+    "action": "user_login",
+    "user_id": "user_0739e634c5b9c778",
+    "target_user_id": null,
+    "details": {}
+  },
+  {
+    "timestamp": "2025-07-06T18:13:22.963383",
+    "action": "user_login",
+    "user_id": "user_0739e634c5b9c778",
+    "target_user_id": null,
+    "details": {}
+  },
+  {
+    "timestamp": "2025-07-06T18:16:17.237699",
+    "action": "user_login",
+    "user_id": "user_0739e634c5b9c778",
+    "target_user_id": null,
+    "details": {}
+  },
+  {
+    "timestamp": "2025-07-06T18:18:31.459843",
+    "action": "user_login",
+    "user_id": "user_0739e634c5b9c778",
+    "target_user_id": null,
+    "details": {}
+  },
+  {
+    "timestamp": "2025-07-06T18:19:14.892218",
+    "action": "user_login",
+    "user_id": "user_e3eb6aaadf5450c7",
+    "target_user_id": null,
+    "details": {}
+  },
+  {
+    "timestamp": "2025-07-06T18:26:59.679126",
+    "action": "user_login",
+    "user_id": "user_0739e634c5b9c778",
+    "target_user_id": null,
+    "details": {}
+  },
+  {
+    "timestamp": "2025-07-06T18:38:40.330682",
+    "action": "user_login",
+    "user_id": "user_0739e634c5b9c778",
+    "target_user_id": null,
+    "details": {}
+  },
+  {
+    "timestamp": "2025-07-06T18:39:43.131105",
+    "action": "user_login",
+    "user_id": "user_e3eb6aaadf5450c7",
+    "target_user_id": null,
+    "details": {}
+  },
+  {
+    "timestamp": "2025-07-06T18:46:32.807762",
+    "action": "user_login",
+    "user_id": "user_e3eb6aaadf5450c7",
+    "target_user_id": null,
+    "details": {}
+  },
+  {
+    "timestamp": "2025-07-06T18:48:54.639001",
+    "action": "user_login",
+    "user_id": "user_0739e634c5b9c778",
+    "target_user_id": null,
+    "details": {}
+  },
+  {
+    "timestamp": "2025-07-06T18:50:06.956923",
+    "action": "user_login",
+    "user_id": "user_0739e634c5b9c778",
+    "target_user_id": null,
+    "details": {}
+  },
+  {
+    "timestamp": "2025-07-06T18:54:25.742754",
+    "action": "user_login",
+    "user_id": "user_0739e634c5b9c778",
+    "target_user_id": null,
+    "details": {}
+  },
+  {
+    "timestamp": "2025-07-06T18:55:00.963308",
+    "action": "user_login",
+    "user_id": "user_0739e634c5b9c778",
+    "target_user_id": null,
+    "details": {}
+  },
+  {
+    "timestamp": "2025-07-06T18:56:57.843554",
+    "action": "user_login",
+    "user_id": "user_0739e634c5b9c778",
+    "target_user_id": null,
+    "details": {}
+  },
+  {
+    "timestamp": "2025-07-06T19:03:56.282970",
+    "action": "user_login",
+    "user_id": "user_0739e634c5b9c778",
+    "target_user_id": null,
+    "details": {}
+  },
+  {
+    "timestamp": "2025-07-06T19:04:10.712400",
+    "action": "user_login",
+    "user_id": "user_e3eb6aaadf5450c7",
+    "target_user_id": null,
+    "details": {}
+  },
+  {
+    "timestamp": "2025-07-06T19:05:57.544747",
+    "action": "user_login",
+    "user_id": "user_0739e634c5b9c778",
+    "target_user_id": null,
+    "details": {}
+  },
+  {
+    "timestamp": "2025-07-06T19:24:19.385610",
+    "action": "user_login",
+    "user_id": "user_0739e634c5b9c778",
+    "target_user_id": null,
+    "details": {}
+  },
+  {
+    "timestamp": "2025-07-06T19:25:25.725226",
+    "action": "user_login",
+    "user_id": "user_0739e634c5b9c778",
+    "target_user_id": null,
+    "details": {}
+  },
+  {
+    "timestamp": "2025-07-06T19:25:49.540357",
+    "action": "user_login",
+    "user_id": "user_e3eb6aaadf5450c7",
+    "target_user_id": null,
+    "details": {}
+  },
+  {
+    "timestamp": "2025-07-06T19:27:22.090035",
+    "action": "user_login",
+    "user_id": "user_e3eb6aaadf5450c7",
+    "target_user_id": null,
+    "details": {}
+  },
+  {
+    "timestamp": "2025-07-06T19:33:53.478958",
+    "action": "user_login",
+    "user_id": "user_0739e634c5b9c778",
+    "target_user_id": null,
+    "details": {}
+  },
+  {
+    "timestamp": "2025-07-06T19:34:10.621658",
+    "action": "user_login",
+    "user_id": "user_e3eb6aaadf5450c7",
+    "target_user_id": null,
+    "details": {}
+  },
+  {
+    "timestamp": "2025-07-06T19:34:39.084922",
+    "action": "user_login",
+    "user_id": "user_0739e634c5b9c778",
+    "target_user_id": null,
+    "details": {}
+  },
+  {
+    "timestamp": "2025-07-06T19:35:28.289670",
+    "action": "user_login",
+    "user_id": "user_e3eb6aaadf5450c7",
+    "target_user_id": null,
+    "details": {}
+  },
+  {
+    "timestamp": "2025-07-06T19:39:34.057883",
+    "action": "user_login",
+    "user_id": "user_e3eb6aaadf5450c7",
+    "target_user_id": null,
+    "details": {}
+  },
+  {
+    "timestamp": "2025-07-06T19:44:25.484266",
+    "action": "user_login",
+    "user_id": "user_e3eb6aaadf5450c7",
+    "target_user_id": null,
+    "details": {}
+  },
+  {
+    "timestamp": "2025-07-06T19:53:04.838951",
+    "action": "user_login",
+    "user_id": "user_e3eb6aaadf5450c7",
+    "target_user_id": null,
+    "details": {}
+  },
+  {
+    "timestamp": "2025-07-06T19:53:56.260194",
+    "action": "user_login",
+    "user_id": "user_0739e634c5b9c778",
+    "target_user_id": null,
+    "details": {}
+  },
+  {
+    "timestamp": "2025-07-06T19:54:45.383852",
+    "action": "user_login",
+    "user_id": "user_0739e634c5b9c778",
+    "target_user_id": null,
+    "details": {}
+  },
+  {
+    "timestamp": "2025-07-06T20:05:39.748250",
+    "action": "user_login",
+    "user_id": "user_0739e634c5b9c778",
+    "target_user_id": null,
+    "details": {}
+  },
+  {
+    "timestamp": "2025-07-06T20:05:48.404883",
+    "action": "user_login",
+    "user_id": "user_e3eb6aaadf5450c7",
+    "target_user_id": null,
+    "details": {}
+  },
+  {
+    "timestamp": "2025-07-06T20:08:31.847821",
+    "action": "user_login",
+    "user_id": "user_0739e634c5b9c778",
+    "target_user_id": null,
+    "details": {}
+  },
+  {
+    "timestamp": "2025-07-06T20:08:53.810470",
+    "action": "user_login",
+    "user_id": "user_e3eb6aaadf5450c7",
+    "target_user_id": null,
+    "details": {}
+  },
+  {
+    "timestamp": "2025-07-06T20:15:02.808888",
+    "action": "user_login",
+    "user_id": "user_0739e634c5b9c778",
+    "target_user_id": null,
+    "details": {}
+  },
+  {
+    "timestamp": "2025-07-06T20:15:14.926843",
+    "action": "user_login",
+    "user_id": "user_e3eb6aaadf5450c7",
+    "target_user_id": null,
+    "details": {}
+  },
+  {
+    "timestamp": "2025-07-06T20:15:17.075823",
+    "action": "user_login",
+    "user_id": "user_e3eb6aaadf5450c7",
+    "target_user_id": null,
+    "details": {}
+  },
+  {
+    "timestamp": "2025-07-06T20:16:59.331037",
+    "action": "user_login",
+    "user_id": "user_0739e634c5b9c778",
+    "target_user_id": null,
+    "details": {}
+  },
+  {
+    "timestamp": "2025-07-06T20:24:24.450529",
+    "action": "user_login",
+    "user_id": "user_0739e634c5b9c778",
+    "target_user_id": null,
+    "details": {}
+  },
+  {
+    "timestamp": "2025-07-06T20:26:30.968250",
+    "action": "user_login",
+    "user_id": "user_e3eb6aaadf5450c7",
+    "target_user_id": null,
+    "details": {}
+  },
+  {
+    "timestamp": "2025-07-06T20:33:44.202071",
+    "action": "user_login",
+    "user_id": "user_e3eb6aaadf5450c7",
+    "target_user_id": null,
+    "details": {}
+  },
+  {
+    "timestamp": "2025-07-06T20:35:04.516245",
+    "action": "user_login",
+    "user_id": "user_0739e634c5b9c778",
+    "target_user_id": null,
+    "details": {}
+  },
+  {
+    "timestamp": "2025-07-06T20:37:12.707549",
+    "action": "user_login",
+    "user_id": "user_e3eb6aaadf5450c7",
+    "target_user_id": null,
+    "details": {}
+  },
+  {
+    "timestamp": "2025-07-06T20:49:56.716355",
+    "action": "user_login",
+    "user_id": "user_e3eb6aaadf5450c7",
+    "target_user_id": null,
+    "details": {}
+  },
+  {
+    "timestamp": "2025-07-06T20:50:19.802180",
+    "action": "user_login",
+    "user_id": "user_0739e634c5b9c778",
+    "target_user_id": null,
+    "details": {}
+  },
+  {
+    "timestamp": "2025-07-06T20:53:03.035377",
+    "action": "user_login",
+    "user_id": "user_e3eb6aaadf5450c7",
+    "target_user_id": null,
+    "details": {}
+  },
+  {
+    "timestamp": "2025-07-06T21:03:18.608108",
+    "action": "user_login",
+    "user_id": "user_0739e634c5b9c778",
+    "target_user_id": null,
+    "details": {}
   }
 ]

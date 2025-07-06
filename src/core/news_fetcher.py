@@ -7,36 +7,91 @@ import feedparser
 import asyncio
 
 class NewsFetcher:
-    def __init__(self, sources: Dict[str, str]):
+    def __init__(self, sources: Dict[str, str], max_articles_per_source: int = 5):
         self.news_sources = sources
+        self.max_articles_per_source = max_articles_per_source
 
     def _get_article_full_text(self, url: str) -> str:
         """Fetches the full text content of an article from its URL."""
         print(f"Attempting to fetch full text from: {url}")
         try:
-            response = requests.get(url, timeout=10)
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            }
+            response = requests.get(url, timeout=15, headers=headers)
             response.raise_for_status()
             soup = BeautifulSoup(response.text, 'lxml')
 
-            # Common tags for article content
-            article_tags = ['article', 'main', 'div']
-            content_classes = ['story-body', 'article-content', 'post-content', 'entry-content', 'article-body']
+            # Enhanced content extraction strategies
+            content_strategies = [
+                # Strategy 1: Common article content selectors
+                {'tags': ['article'], 'classes': ['story-body', 'article-content', 'post-content', 'entry-content', 'article-body']},
+                {'tags': ['main'], 'classes': ['content', 'main-content', 'article-content']},
+                {'tags': ['div'], 'classes': ['story-body', 'article-content', 'post-content', 'entry-content', 'article-body', 'content-body']},
 
-            for tag in article_tags:
-                for class_name in content_classes:
-                    article_element = soup.find(tag, class_=class_name)
-                    if article_element:
-                        print(f"Successfully extracted text using {tag} with class {class_name}")
-                        return article_element.get_text(separator='\n', strip=True)
+                # Strategy 2: Thomson Reuters specific selectors
+                {'tags': ['div'], 'classes': ['news-release-content', 'press-release-content', 'release-content']},
+                {'tags': ['section'], 'classes': ['content', 'main-content', 'article-section']},
 
-            # Fallback: try to get all paragraph text
+                # Strategy 3: Generic content containers
+                {'tags': ['div'], 'classes': ['content', 'main', 'body-content', 'text-content']},
+
+                # Strategy 4: ID-based selectors
+                {'tags': ['div'], 'ids': ['content', 'main-content', 'article-content', 'story-content']},
+            ]
+
+            # Try each strategy
+            for strategy in content_strategies:
+                tags = strategy.get('tags', [])
+                classes = strategy.get('classes', [])
+                ids = strategy.get('ids', [])
+
+                for tag in tags:
+                    # Try class-based selection
+                    for class_name in classes:
+                        element = soup.find(tag, class_=class_name)
+                        if element:
+                            content = element.get_text(separator='\n', strip=True)
+                            if len(content) > 100:  # Ensure we have substantial content
+                                print(f"Successfully extracted text using {tag}.{class_name} ({len(content)} chars)")
+                                return content
+
+                    # Try ID-based selection
+                    for id_name in ids:
+                        element = soup.find(tag, id=id_name)
+                        if element:
+                            content = element.get_text(separator='\n', strip=True)
+                            if len(content) > 100:
+                                print(f"Successfully extracted text using {tag}#{id_name} ({len(content)} chars)")
+                                return content
+
+            # Enhanced fallback: try to get meaningful paragraph text
             paragraphs = soup.find_all('p')
             if paragraphs:
-                print("Falling back to extracting all paragraph text.")
-                return '\n'.join([p.get_text(strip=True) for p in paragraphs])
+                # Filter out navigation and footer paragraphs
+                meaningful_paragraphs = []
+                for p in paragraphs:
+                    text = p.get_text(strip=True)
+                    # Skip short paragraphs and common navigation text
+                    if (len(text) > 20 and
+                        not any(skip_phrase in text.lower() for skip_phrase in
+                               ['cookie', 'privacy', 'terms of service', 'subscribe', 'newsletter',
+                                'follow us', 'social media', 'contact us', 'about us'])):
+                        meaningful_paragraphs.append(text)
+
+                if meaningful_paragraphs:
+                    content = '\n'.join(meaningful_paragraphs)
+                    print(f"Extracted meaningful paragraph text ({len(content)} chars)")
+                    return content
+                else:
+                    # Last resort: all paragraphs
+                    content = '\n'.join([p.get_text(strip=True) for p in paragraphs])
+                    print(f"Falling back to all paragraph text ({len(content)} chars)")
+                    return content
 
             print("No suitable content found for full text extraction.")
             return ""
+
         except requests.exceptions.Timeout:
             print(f"Timeout fetching full text from {url}")
             return ""
@@ -57,18 +112,47 @@ class NewsFetcher:
                 title = entry.title if hasattr(entry, 'title') else 'No Title'
                 link = entry.link if hasattr(entry, 'link') else ''
                 published = entry.published if hasattr(entry, 'published') else datetime.now().isoformat()
-                
-                full_text = self._get_article_full_text(link) if link else ""
+
+                # Get RSS content as fallback
+                rss_content = ""
+                if hasattr(entry, 'summary'):
+                    rss_content = entry.summary
+                elif hasattr(entry, 'description'):
+                    rss_content = entry.description
+                elif hasattr(entry, 'content'):
+                    if isinstance(entry.content, list) and entry.content:
+                        rss_content = entry.content[0].value
+                    else:
+                        rss_content = str(entry.content)
+
+                # Clean RSS content (remove HTML tags)
+                if rss_content:
+                    from bs4 import BeautifulSoup
+                    rss_content = BeautifulSoup(rss_content, 'html.parser').get_text(separator='\n', strip=True)
+
+                # Try to get full text from article URL
+                full_text = ""
+                if link:
+                    full_text = self._get_article_full_text(link)
+
+                # Use RSS content as fallback if full text extraction failed or is too short
+                if not full_text or len(full_text) < 100:
+                    if rss_content and len(rss_content) > 50:
+                        full_text = rss_content
+                        print(f"Using RSS content as fallback for {title[:50]}...")
+                    elif not full_text:
+                        full_text = f"Title: {title}\nSource: {source_name}\nNo additional content available."
 
                 news_items.append({
                     'title': title,
                     'link': link,
                     'source': source_name,
                     'timestamp': published,
-                    'full_text': full_text
+                    'full_text': full_text,
+                    'rss_summary': rss_content  # Keep original RSS content for reference
                 })
-                
-                if len(news_items) >= 5:  # Limit to 5 items per source
+
+                if len(news_items) >= self.max_articles_per_source:  # Configurable limit per source
                     break
             
             print(f"Found {len(news_items)} news items from {source_name}")
@@ -121,14 +205,28 @@ class NewsFetcher:
         """Fetch news from all sources"""
         print("Starting fetch_all_news...")
         all_news = []
-        
-        for source_name, source_url in self.news_sources.items():
+
+        for source_name, source_config in self.news_sources.items():
             print(f"Processing source: {source_name}")
+
+            # Handle both string URLs and dict configurations
+            if isinstance(source_config, str):
+                source_url = source_config
+            elif isinstance(source_config, dict):
+                source_url = source_config.get('url', '')
+            else:
+                print(f"Invalid source configuration for {source_name}: {source_config}")
+                continue
+
+            if not source_url:
+                print(f"No URL found for source {source_name}")
+                continue
+
             if "hackernews" in source_name:
                 news_items = self.fetch_news_from_api(source_name)
             else:
                 news_items = self.fetch_news_from_rss(source_name, source_url)
-            
+
             all_news.extend(news_items)
             time.sleep(1)  # Be nice to servers
         

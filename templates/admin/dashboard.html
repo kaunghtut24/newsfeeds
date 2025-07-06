@@ -44,6 +44,17 @@
             color: #333;
             font-size: 28px;
         }
+
+        .admin-user-info {
+            display: flex;
+            align-items: center;
+            color: #666;
+            font-size: 16px;
+        }
+
+        .admin-user-info strong {
+            color: #333;
+        }
         
         .admin-user-info {
             display: flex;
@@ -233,18 +244,22 @@
         }
         
         .btn-logout {
-            background-color: rgba(255,255,255,0.1);
+            background-color: #dc3545;
             color: white;
-            border: 1px solid rgba(255,255,255,0.3);
+            border: 1px solid #dc3545;
             padding: 8px 16px;
             border-radius: 6px;
             text-decoration: none;
             font-size: 14px;
             transition: all 0.3s ease;
+            margin-left: 15px;
         }
-        
+
         .btn-logout:hover {
-            background-color: rgba(255,255,255,0.2);
+            background-color: #c82333;
+            border-color: #c82333;
+            color: white;
+            text-decoration: none;
         }
         
         .empty-state {
@@ -325,12 +340,17 @@
                 <h2>📊 Admin Panel</h2>
             </div>
             <ul class="sidebar-nav">
-                <li><a href="#dashboard" class="nav-link active" data-section="dashboard">🏠 Dashboard</a></li>
+                <li><a href="#dashboard" class="nav-link active" data-section="dashboard">📊 Dashboard</a></li>
                 <li><a href="#users" class="nav-link" data-section="users">👥 User Management</a></li>
                 <li><a href="#pending" class="nav-link" data-section="pending">⏳ Pending Approvals</a></li>
                 <li><a href="#audit" class="nav-link" data-section="audit">📋 Audit Log</a></li>
-                <li><a href="#settings" class="nav-link" data-section="settings">⚙️ Settings</a></li>
-                <li><a href="/" class="nav-link">🏠 Main App</a></li>
+                <li><a href="/admin/settings" class="nav-link">⚙️ Advanced Settings</a></li>
+                <li style="border-top: 1px solid rgba(255,255,255,0.2); margin-top: 10px; padding-top: 10px;">
+                    <a href="/app" class="nav-link" style="background-color: rgba(255,255,255,0.1); font-weight: bold;">
+                        📰 News Feed App
+                    </a>
+                </li>
+                <li><a href="/dashboard" class="nav-link">👤 My Dashboard</a></li>
             </ul>
         </div>
         
