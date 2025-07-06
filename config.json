@@ -1,8 +1,10 @@
 {
     "news_sources": {
+        "Times of India": "https://timesofindia.indiatimes.com/rssfeeds/1898055.cms",
+        "BBC News": "https://feeds.bbci.co.uk/news/business/rss.xml",
         "Businessline": "https://www.thehindubusinessline.com/economy/feeder/default.rss",
         "The Hindu": "https://www.thehindu.com/business/feeder/default.rss",
-        "hackernews": "https://news.ycombinator.com/rss",
+        "hackernews": "https://hnrss.org/frontpage",
         "reddit_programming": "https://www.reddit.com/r/programming/.rss",
         "reddit_technology": "https://www.reddit.com/r/technology/.rss",
         "techcrunch": "https://techcrunch.com/feed/"

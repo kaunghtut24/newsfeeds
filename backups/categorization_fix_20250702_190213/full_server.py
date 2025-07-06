@@ -13,7 +13,7 @@ import threading
 import logging
 from datetime import datetime
 from pathlib import Path
-from flask import Flask, render_template, jsonify, request, send_from_directory
+from flask import Flask, render_template, jsonify, request
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -29,7 +29,6 @@ from core.news_fetcher import NewsFetcher
 from core.data_manager import DataManager
 from core.categorizer import Categorizer
 from core.multi_llm_summarizer import MultiLLMSummarizer
-from core.reporting import ReportGenerator
 
 # Import new AI features
 from core.ai_features.smart_categorizer import SmartCategorizer
@@ -72,7 +71,6 @@ os.makedirs(data_dir, exist_ok=True)
 news_fetcher = NewsFetcher(news_sources)
 data_manager = DataManager(base_path=data_dir)
 categorizer = Categorizer()
-report_generator = ReportGenerator()
 
 # Initialize LLM summarizer first
 try:
@@ -85,8 +83,8 @@ except Exception as e:
 
 # Initialize new AI features
 try:
-    # Phase 1 features - Initialize smart categorizer with LLM support and specified model
-    smart_categorizer = SmartCategorizer(llm_summarizer=multi_llm_summarizer, ollama_model=ollama_model)
+    # Phase 1 features
+    smart_categorizer = SmartCategorizer()
     sentiment_analyzer = AdvancedSentimentAnalyzer()
     content_recommender = ContentRecommender()
     semantic_search = SemanticSearchEngine()
@@ -125,21 +123,6 @@ processing_stats = {
 def index():
     """Main page"""
     return render_template('index.html')
-
-@app.route('/report')
-def report():
-    """Generate and serve HTML report"""
-    try:
-        # Load current news data
-        news_data = data_manager.load_news_data()
-
-        # Generate HTML report
-        report_generator.create_html_report(news_data, "news_report.html")
-
-        # Serve the generated HTML file
-        return send_from_directory('.', 'news_report.html')
-    except Exception as e:
-        return f"Error generating report: {str(e)}", 500
 
 @app.route('/api/health')
 def health_check():
@@ -483,22 +466,17 @@ def fetch_news():
                     processing_stats["total_articles"] += len(source_news)
                     processing_status = f"🤖 AI summarizing {len(source_news)} articles from {source_name}..."
                     
-                    # Categorize articles with AI-powered system
+                    # Categorize articles with enhanced AI features
                     for item in source_news:
-                        # Use AI-powered categorization as primary method
+                        item['category'] = categorizer.categorize_news(item)
+
+                        # Apply advanced AI features if available
                         if smart_categorizer:
                             try:
-                                smart_result = smart_categorizer.categorize_article(item)
-                                item['category'] = smart_result.get('primary_category', 'General')
-                                item['smart_categorization'] = smart_result
+                                item['smart_categorization'] = smart_categorizer.categorize_article(item)
                             except Exception as e:
-                                logger.warning(f"AI categorization failed, using fallback: {e}")
-                                item['category'] = categorizer.categorize_news(item)
-                        else:
-                            # Fallback to old categorizer if AI is not available
-                            item['category'] = categorizer.categorize_news(item)
+                                logger.warning(f"Smart categorization failed: {e}")
 
-                        # Apply sentiment analysis
                         if sentiment_analyzer:
                             try:
                                 item['sentiment_analysis'] = sentiment_analyzer.analyze_sentiment(item)

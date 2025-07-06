@@ -1,10 +1,8 @@
 {
   "enabled_sources": [
+    "BBC News",
     "Businessline",
-    "reddit_technology",
     "The Hindu",
-    "hackernews",
-    "reddit_programming",
-    "techcrunch"
+    "Times of India"
   ]
 }

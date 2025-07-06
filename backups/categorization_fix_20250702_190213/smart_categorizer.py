@@ -2,13 +2,12 @@
 Smart Content Categorizer
 ========================
 
-Advanced AI-powered categorization system that uses LLM for accurate categorization
-and provides detailed topic detection, industry classification, and event recognition.
+Advanced AI-powered categorization system that goes beyond basic categories
+to provide detailed topic detection, industry classification, and event recognition.
 """
 
 import re
 import json
-import asyncio
 from typing import Dict, List, Set, Optional, Tuple
 from datetime import datetime
 import logging
@@ -17,25 +16,17 @@ logger = logging.getLogger(__name__)
 
 class SmartCategorizer:
     """
-    Advanced categorization system using LLM-powered AI and enhanced keyword analysis.
+    Advanced categorization system using rule-based AI and keyword analysis.
     Provides multi-dimensional categorization including topics, industries, and events.
     """
-
-    def __init__(self, config_path: Optional[str] = None, llm_summarizer=None, ollama_model: str = None):
-        """Initialize the smart categorizer with configuration and LLM."""
+    
+    def __init__(self, config_path: Optional[str] = None):
+        """Initialize the smart categorizer with configuration."""
         self.config = self._load_config(config_path)
-        self.llm_summarizer = llm_summarizer
-        self.ollama_model = ollama_model or "llama3:8b"  # Default to non-reasoning model
         self.topic_keywords = self._build_topic_keywords()
         self.industry_keywords = self._build_industry_keywords()
         self.event_patterns = self._build_event_patterns()
         self.geographic_keywords = self._build_geographic_keywords()
-
-        # Define primary categories for LLM classification
-        self.primary_categories = [
-            "Technology", "Business", "Politics", "Sports", "Health",
-            "Science", "Entertainment", "World News", "Market", "General"
-        ]
         
     def _load_config(self, config_path: Optional[str]) -> Dict:
         """Load categorization configuration."""
@@ -203,8 +194,7 @@ class SmartCategorizer:
             "metadata": {
                 "processed_at": datetime.now().isoformat(),
                 "text_length": len(text),
-                "method": "ai_powered_categorizer_v2",
-                "llm_enabled": self.llm_summarizer is not None
+                "method": "smart_categorizer_v1"
             }
         }
 
@@ -225,150 +215,8 @@ class SmartCategorizer:
 
         return ' '.join(text_parts).lower()
 
-    async def _llm_categorize(self, text: str) -> str:
-        """Use LLM to categorize the article text."""
-        if not self.llm_summarizer:
-            return "General"
-
-        try:
-            # Create a simple, direct prompt for non-reasoning models
-            prompt = f"""Classify this news article into ONE category. Reply with only the category name.
-
-Categories: Technology, Business, Politics, Sports, Health, Science, Entertainment, World News, Market, General
-
-Article: {text[:400]}
-
-Category:"""
-
-            # Get LLM response using the specified model
-            response = await self.llm_summarizer.summarize_text(
-                text=prompt,
-                model=self.ollama_model,
-                max_tokens=10,
-                temperature=0.1  # Low temperature for consistent categorization
-            )
-
-            # Extract category from response (handle LLMResponse object)
-            if hasattr(response, 'content'):
-                category_text = response.content.strip()
-            elif hasattr(response, 'text'):
-                category_text = response.text.strip()
-            else:
-                category_text = str(response).strip()
-
-            logger.info(f"LLM categorization response: '{category_text}'")
-
-            # Validate the category
-            if category_text in self.primary_categories:
-                logger.info(f"Exact match found: {category_text}")
-                return category_text
-            else:
-                # Try to find a matching category in the response
-                for cat in self.primary_categories:
-                    if cat.lower() in category_text.lower():
-                        logger.info(f"Partial match found: {cat} in '{category_text}'")
-                        return cat
-                logger.info(f"No match found, returning General. Available categories: {self.primary_categories}")
-                return "General"
-
-        except Exception as e:
-            logger.warning(f"LLM categorization failed: {e}")
-            return "General"
-
     def _get_primary_category(self, article: Dict) -> str:
-        """Get the primary category using LLM first, then enhanced keyword matching."""
-        text = self._extract_text(article)
-
-        # Try LLM categorization first with non-reasoning model
-        if self.llm_summarizer and text:
-            try:
-                # Run async LLM categorization
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                try:
-                    category = loop.run_until_complete(self._llm_categorize(text))
-                    if category != "General":
-                        logger.info(f"LLM categorization successful: {category}")
-                        return category
-                finally:
-                    loop.close()
-            except Exception as e:
-                logger.warning(f"LLM categorization error, falling back to keyword matching: {e}")
-
-        # Fallback to enhanced keyword matching
-        text_lower = text.lower()
-        title = article.get('title', '').lower()
-
-        # Enhanced keyword patterns for better categorization
-        category_patterns = {
-            'Technology': [
-                r'\b(ai|artificial intelligence|machine learning|software|app|tech|digital|cyber|internet|computer|smartphone|iphone|android|tech company|startup|programming|coding|algorithm|data|cloud|blockchain|cryptocurrency|bitcoin)\b',
-                r'\b(apple|google|microsoft|amazon|facebook|meta|tesla|nvidia|intel|samsung|twitter|x\.com|tiktok|uber|airbnb)\b',
-                r'\b(launch|release|update|version|beta|download|install|platform|device|gadget)\b.*\b(tech|app|software|device)\b'
-            ],
-            'Business': [
-                r'\b(business|company|corporate|finance|financial|economy|economic|market|stock|share|profit|revenue|earnings|investment|investor|ceo|cfo|merger|acquisition|ipo|nasdaq|dow|s&p)\b',
-                r'\b(bank|banking|loan|credit|debt|insurance|fund|portfolio|trading|trader|wall street|stock market|bull market|bear market)\b',
-                r'\b(quarter|quarterly|annual|fiscal|budget|cost|price|sales|growth|decline|inflation|recession|gdp)\b'
-            ],
-            'Politics': [
-                r'\b(government|political|politics|election|vote|voting|candidate|president|minister|parliament|congress|senate|policy|law|legislation|bill|act|regulation)\b',
-                r'\b(democrat|republican|party|campaign|debate|poll|ballot|democracy|constitution|supreme court|federal|state|local government)\b',
-                r'\b(biden|trump|modi|xi jinping|putin|macron|merkel|johnson|trudeau|bolsonaro)\b'
-            ],
-            'Sports': [
-                r'\b(sport|sports|game|match|tournament|championship|league|team|player|athlete|coach|stadium|olympic|fifa|nba|nfl|mlb|nhl|cricket|football|soccer|basketball|tennis|golf|baseball|hockey)\b',
-                r'\b(win|won|lose|lost|score|goal|point|run|wicket|medal|trophy|cup|final|semifinal|playoff|season|draft)\b',
-                r'\b(manchester united|real madrid|barcelona|lakers|warriors|yankees|cowboys|patriots|india cricket|england cricket)\b'
-            ],
-            'Health': [
-                r'\b(health|medical|medicine|doctor|hospital|patient|disease|virus|covid|pandemic|vaccine|vaccination|drug|pharmaceutical|treatment|therapy|surgery|clinic|healthcare)\b',
-                r'\b(cancer|diabetes|heart|brain|mental health|depression|anxiety|fitness|nutrition|diet|exercise|wellness|who|fda|cdc)\b'
-            ],
-            'Science': [
-                r'\b(science|scientific|research|study|discovery|experiment|laboratory|university|academic|scholar|professor|phd|journal|publication|peer review)\b',
-                r'\b(climate|environment|space|nasa|mars|moon|satellite|physics|chemistry|biology|genetics|dna|evolution|quantum|nuclear|renewable energy)\b'
-            ],
-            'Entertainment': [
-                r'\b(movie|film|cinema|actor|actress|director|hollywood|bollywood|netflix|disney|entertainment|music|song|album|artist|singer|concert|show|tv|television|series|streaming)\b',
-                r'\b(oscar|emmy|grammy|cannes|celebrity|star|fame|box office|premiere|release|trailer|soundtrack|band|musician)\b'
-            ],
-            'World News': [
-                r'\b(international|global|world|foreign|embassy|diplomat|treaty|alliance|nato|un|united nations|war|conflict|peace|refugee|immigration|border)\b',
-                r'\b(china|russia|europe|africa|asia|middle east|ukraine|israel|palestine|iran|north korea|south korea|japan|australia|canada|brazil|mexico)\b'
-            ],
-            'Market': [
-                r'\b(stock market|trading|trader|shares|equity|bond|commodity|forex|currency|exchange|index|futures|options|derivatives|portfolio|investment)\b',
-                r'\b(bull|bear|rally|crash|volatility|dividend|yield|pe ratio|market cap|ipo|ipo listing|mutual fund|etf|hedge fund)\b'
-            ]
-        }
-
-        # Weather/Climate patterns that should NOT be Technology
-        weather_patterns = [
-            r'\b(weather|monsoon|rain|rainfall|storm|cyclone|hurricane|typhoon|flood|drought|temperature|climate|forecast|meteorology)\b',
-            r'\b(precipitation|humidity|wind|snow|hail|thunder|lightning|cloudy|sunny|overcast|barometric pressure)\b'
-        ]
-
-        # Check if it's weather-related (should be General, not Technology)
-        for pattern in weather_patterns:
-            if re.search(pattern, text_lower) or re.search(pattern, title):
-                return 'General'
-
-        # Check each category
-        for category, patterns in category_patterns.items():
-            score = 0
-            for pattern in patterns:
-                # Count matches in title (weighted more heavily)
-                title_matches = len(re.findall(pattern, title))
-                text_matches = len(re.findall(pattern, text_lower))
-                score += title_matches * 3 + text_matches
-
-            # If we have strong matches, return this category
-            if score >= 2:  # Threshold for confident categorization
-                logger.info(f"Keyword categorization successful: {category} (score: {score})")
-                return category
-
-        # Fallback to existing category or General
+        """Get the primary category (existing logic)."""
         return article.get('category', 'General')
 
     def _detect_topics(self, text: str) -> List[Dict]:
