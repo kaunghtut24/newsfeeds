@@ -1,6 +1,6 @@
 # 📰 News Feed Pro
 
-A comprehensive, modern news aggregation and analysis application with multi-LLM support, advanced search capabilities, and beautiful UI.
+An AI-powered news aggregation and analysis application with multi-LLM support, intelligent categorization, and modern web interface.
 
 ![News Feed Pro](https://img.shields.io/badge/News%20Feed-Pro-blue)
 ![Python](https://img.shields.io/badge/Python-3.8+-green)
@@ -9,28 +9,27 @@ A comprehensive, modern news aggregation and analysis application with multi-LLM
 
 ## ✨ Features
 
-### 🚀 Core Features
-- **Multi-Source News Aggregation**: RSS feeds, APIs, and web scraping
-- **Multi-LLM Integration**: OpenAI, Anthropic, Google, Ollama support
-- **Intelligent Summarization**: AI-powered article summaries
-- **Sentiment Analysis**: Real-time sentiment tracking
-- **Advanced Search**: Full-text search with filters and saved searches
-- **Modern Web UI**: Responsive design with dark/light mode
+### 🤖 AI-Powered Features
+- **Smart Categorization**: AI-powered article categorization with keyword fallback
+- **Multi-LLM Integration**: Ollama (local), OpenAI, Anthropic, Google AI support
+- **Intelligent Summarization**: Real-time AI article summaries
+- **Sentiment Analysis**: Automated sentiment detection and tracking
+- **AI Chat Assistant**: Interactive AI chat with article context
+- **Trending Analysis**: AI-powered trending topics and source analysis
 
-### 🎯 Advanced Features
-- **Real-time Processing**: Background news fetching and analysis
-- **Content Insights**: Trending topics, sentiment overview, statistics
-- **Source Management**: Configurable news sources and providers
-- **Export Capabilities**: HTML reports and data export
-- **Error Recovery**: Robust error handling and UI recovery
-- **Debug Tools**: Comprehensive debugging and monitoring
+### 📰 News Processing
+- **Multi-Source Aggregation**: 8 diverse RSS sources (Times of India, BBC, TechCrunch, etc.)
+- **Real-time Fetching**: Automatic news updates and processing
+- **Content Enhancement**: AI-powered content analysis and enrichment
+- **Smart Filtering**: Advanced search with category and sentiment filters
+- **Report Generation**: Professional HTML reports with AI insights
 
-### 🛡️ Reliability Features
-- **Self-Recovering UI**: Automatic loading state management
-- **Emergency Reset**: Multiple recovery options for stuck states
-- **Comprehensive Logging**: Detailed debug and error logging
-- **Timeout Protection**: Automatic processing timeout handling
-- **Graceful Degradation**: Continues working even if some services fail
+### 🎨 Modern Interface
+- **Responsive Design**: Mobile-friendly, collapsible sidebar
+- **Real-time Updates**: Live status monitoring and progress tracking
+- **Professional UI**: Clean, modern design with smooth animations
+- **Interactive Dashboard**: Comprehensive AI features dashboard
+- **Accessibility**: Keyboard navigation and screen reader support
 
 ## 🚀 Quick Start
 
@@ -38,7 +37,7 @@ A comprehensive, modern news aggregation and analysis application with multi-LLM
 
 - **Python 3.8+**
 - **Internet connection** for fetching news
-- **LLM Provider** (Ollama, OpenAI, Anthropic, or Google)
+- **Ollama** (recommended) or other LLM providers (OpenAI, Anthropic, Google AI)
 
 ### Installation
 
@@ -53,16 +52,16 @@ A comprehensive, modern news aggregation and analysis application with multi-LLM
    pip install -r requirements.txt
    ```
 
-3. **Configure LLM providers** (optional):
+3. **Install Ollama (recommended for local AI):**
    ```bash
-   # Edit llm_config.json to add your API keys
-   cp llm_config.json llm_config_local.json
-   # Add your API keys to llm_config_local.json
+   # Install Ollama from https://ollama.ai
+   ollama pull llama3:8b
+   ollama pull qwen3:8b
    ```
 
 4. **Start the application:**
    ```bash
-   python -m src.web_news_app
+   python full_server.py
    ```
 
 5. **Open your browser:**
@@ -75,58 +74,64 @@ A comprehensive, modern news aggregation and analysis application with multi-LLM
 ### Web Interface
 
 1. **Access the application** at `http://localhost:5000`
-2. **Fetch News**: Click "🚀 Fetch & Summarize News"
-3. **Browse Articles**: View summarized articles with sentiment analysis
-4. **Search**: Use advanced search with filters
-5. **Insights**: Check trending topics and content statistics
+2. **Fetch News**: Click "🔄 Fetch News" to get latest articles
+3. **Browse Articles**: View AI-categorized articles with summaries
+4. **AI Features**: Explore the AI Features dashboard for:
+   - Smart categorization and sentiment analysis
+   - AI chat assistant for article discussions
+   - Trending topics and active sources analysis
+   - Content insights and recommendations
+5. **Generate Reports**: Visit `/report` for professional HTML reports
+6. **Search & Filter**: Use advanced search with category and sentiment filters
 
-### Command Line Interface
+### Key Endpoints
 
-```bash
-# Run CLI version
-python run_cli.py
-
-# Run web server
-python run_web.py
-
-# Demo features
-python demo_multi_llm.py
-python demo_advanced_features.py
-```
+- **Main App**: `http://localhost:5000/`
+- **HTML Reports**: `http://localhost:5000/report`
+- **API Status**: `http://localhost:5000/api/ai-features/status`
+- **News Data**: `http://localhost:5000/api/news`
 
 ## ⚙️ Configuration
 
-### News Sources
+### News Sources (Pre-configured)
 
-Edit `config.json` to configure news sources:
+The application comes with 8 diverse news sources:
+
+- **Times of India** - Indian business and general news
+- **BBC News** - International business news
+- **Businessline** - Indian business and economy
+- **The Hindu** - Indian business news
+- **Hacker News** - Technology and startup news
+- **Reddit Programming** - Programming discussions
+- **Reddit Technology** - Technology news and discussions
+- **TechCrunch** - Technology and startup news
+
+### LLM Configuration
+
+Edit `config.json` to configure AI models:
 
 ```json
 {
-  "news_sources": {
-    "techcrunch": "https://techcrunch.com/feed/",
-    "hackernews": "https://hacker-news.firebaseio.com/v0/topstories.json",
-    "custom_source": "https://example.com/rss"
+  "llm": {
+    "provider": "ollama",
+    "ollama_model": "llama3:8b",
+    "openai_model": "gpt-3.5-turbo",
+    "anthropic_model": "claude-3-haiku-20240307",
+    "google_model": "gemini-pro"
   }
 }
 ```
 
-### LLM Providers
+### Adding API Keys (Optional)
 
-Configure LLM providers in `llm_config.json`:
+For cloud LLM providers, add API keys to `config.json`:
 
 ```json
 {
-  "providers": {
-    "openai": {
-      "enabled": true,
-      "api_key": "your-api-key",
-      "model": "gpt-3.5-turbo"
-    },
-    "ollama": {
-      "enabled": true,
-      "base_url": "http://localhost:11434",
-      "model": "llama3:8b"
-    }
+  "api_keys": {
+    "openai": "your-openai-api-key",
+    "anthropic": "your-anthropic-api-key",
+    "google": "your-google-api-key"
   }
 }
 ```
@@ -137,86 +142,107 @@ Configure LLM providers in `llm_config.json`:
 
 ```
 newsfeeds/
-├── src/                    # Core application code
-│   ├── core/              # Core modules
-│   ├── news_feed_app.py   # CLI application
-│   └── web_news_app.py    # Web application
-├── static/                # Web assets
-│   ├── css/              # Stylesheets
-│   ├── js/               # JavaScript
-│   └── icons/            # Icons and images
-├── templates/             # HTML templates
-├── config.json           # Configuration
-├── llm_config.json       # LLM configuration
-└── requirements.txt      # Dependencies
+├── full_server.py              # Main application server
+├── src/                        # Core application code
+│   ├── core/                  # Core modules
+│   │   ├── ai_features/       # AI feature implementations
+│   │   ├── llm_providers/     # Multi-LLM provider support
+│   │   ├── data_manager.py    # Data management
+│   │   ├── multi_llm_summarizer.py  # LLM integration
+│   │   └── reporting.py       # Report generation
+│   ├── news_feed_app.py       # CLI application
+│   └── web_news_app.py        # Alternative web app
+├── static/                    # Web assets
+│   ├── css/styles.css        # Main stylesheet
+│   ├── js/app.js             # Frontend JavaScript
+│   └── icons/                # Icons and images
+├── templates/                 # HTML templates
+│   └── index.html            # Main web interface
+├── data/                     # Data storage
+│   ├── news_data.json        # Processed news articles
+│   └── user_sources.json     # User source configurations
+├── config.json               # Main configuration
+└── requirements.txt          # Python dependencies
 ```
 
-### Running Tests
+### Architecture
 
-```bash
-# Test the application
-python test_project.py
-
-# Test UI fixes
-python test_ui_fixes.py
-```
-
-### Debug Mode
-
-Enable debug logging by setting `debugMode: true` in the JavaScript console or using the debug tools.
+- **Backend**: Flask server with multi-LLM integration
+- **Frontend**: Modern JavaScript with responsive CSS
+- **AI Features**: 8 comprehensive AI features for news analysis
+- **Data Flow**: RSS → Processing → AI Analysis → Web Interface
+- **Storage**: JSON-based with backup system
 
 ## 🚨 Troubleshooting
 
 ### Common Issues
 
-1. **Loading Overlay Stuck**:
-   ```javascript
-   // In browser console:
-   emergencyUIReset()
-   ```
-
-2. **Processing Stuck**:
+1. **Ollama Not Running**:
    ```bash
-   curl -X POST http://localhost:5000/api/reset-processing
+   # Start Ollama service
+   ollama serve
+   # Pull required models
+   ollama pull llama3:8b
    ```
 
-3. **LLM Provider Issues**:
-   - Check API keys in `llm_config.json`
-   - Verify provider status in the web interface
-   - Use health check: `/api/llm-providers/health-check`
+2. **Port Already in Use**:
+   ```bash
+   # Kill process on port 5000
+   lsof -ti:5000 | xargs kill -9
+   # Or use different port
+   export PORT=5001 && python full_server.py
+   ```
 
-### Debug Tools
+3. **No News Articles Loading**:
+   - Check internet connection
+   - Verify RSS sources are accessible
+   - Check server logs for fetch errors
 
-- **Debug UI**: Open `debug_ui.html` for comprehensive debugging
-- **Browser Console**: Use `emergencyUIReset()` and `forceResetProcessing()`
-- **Server Logs**: Check console output for detailed logging
+4. **AI Features Not Working**:
+   - Ensure Ollama is running with required models
+   - Check LLM provider status in web interface
+   - Verify API keys for cloud providers
 
 ## 📊 API Reference
 
-### Main Endpoints
+### Core Endpoints
 
-- `GET /` - Web interface
-- `POST /api/fetch-news` - Fetch and process news
-- `GET /api/news` - Get processed news
-- `GET /api/status` - Check processing status
-- `POST /api/reset-processing` - Reset stuck processing
+- `GET /` - Main web interface
+- `GET /report` - HTML report generation
+- `GET /api/news` - Get processed news articles
+- `GET /api/sources` - Get configured news sources
+- `GET /api/ai-features/status` - AI features status
+
+### AI Features API
+
+- `POST /api/ai-features/smart-categorization` - Categorize articles
+- `POST /api/ai-features/ai-chat` - AI chat assistant
+- `GET /api/trending-analysis` - Trending topics and sources
+- `GET /api/content-insights` - Content analysis insights
 - `GET /api/llm-providers` - LLM provider status
 
-### Search API
+## 🎯 AI Features Overview
 
-- `POST /api/search` - Advanced search
-- `GET /api/search/suggestions` - Search suggestions
-- `GET /api/saved-searches` - Saved searches
+### Phase 1 Features
+1. **Smart Categorizer** - AI-powered article categorization
+2. **Sentiment Analyzer** - Emotion detection in articles
+3. **Content Recommender** - Personalized article suggestions
+4. **Semantic Search** - Advanced content search capabilities
+
+### Phase 2 Features
+5. **AI News Assistant** - Interactive chat about articles
+6. **Smart Briefing Generator** - Automated news summaries
+7. **Content Relationship Mapper** - Article connection analysis
+8. **Trend Analyzer** - Trending topics and source analysis
 
 ## 🤝 Contributing
 
 1. Fork the repository
 2. Create a feature branch: `git checkout -b feature-name`
-3. Make your changes
-4. Add tests if applicable
-5. Commit your changes: `git commit -am 'Add feature'`
-6. Push to the branch: `git push origin feature-name`
-7. Submit a pull request
+3. Make your changes and test thoroughly
+4. Commit your changes: `git commit -am 'Add feature'`
+5. Push to the branch: `git push origin feature-name`
+6. Submit a pull request
 
 ## 📄 License
 
@@ -224,17 +250,17 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🙏 Acknowledgments
 
-- **Multi-LLM Support**: OpenAI, Anthropic, Google, Ollama
-- **News Sources**: TechCrunch, Hacker News, Reddit, and more
-- **UI Framework**: Modern CSS with responsive design
-- **Icons**: Various open-source icon sets
+- **AI Models**: Ollama (llama3, qwen3), OpenAI, Anthropic, Google AI
+- **News Sources**: Times of India, BBC, TechCrunch, Hacker News, Reddit
+- **Framework**: Flask, modern JavaScript, responsive CSS
+- **Community**: Open source contributors and AI enthusiasts
 
 ## 📞 Support
 
 - **Issues**: [GitHub Issues](https://github.com/kaunghtut24/newsfeeds/issues)
-- **Documentation**: Check the `/docs` folder for detailed documentation
-- **Debug Tools**: Use built-in debug utilities for troubleshooting
+- **Documentation**: See `NEWS_FEED_IMPROVEMENT_PLAN.md` for roadmap
+- **Features**: Check `NEW_FEATURES_DOCUMENTATION.md` for AI features guide
 
 ---
 
-**Made with ❤️ for the news and AI community**
+**🚀 AI-Powered News Intelligence Platform**

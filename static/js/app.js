@@ -29,6 +29,7 @@ class NewsFeedApp {
         this.loadInitialData();
         this.setupToastNotifications();
         this.setupLoadingStates();
+        this.setupAIFeatures();
         this.debug('✅ NewsFeedApp initialization complete');
     }
 
@@ -336,6 +337,7 @@ class NewsFeedApp {
         try {
             await this.loadConfig();
             await this.loadNews();
+            await this.loadSources();
         } catch (error) {
             this.showToast('Failed to load initial data', 'error');
             console.error('Initial data loading error:', error);
@@ -658,6 +660,7 @@ class NewsFeedApp {
         const timeAgo = this.getTimeAgo(item.timestamp);
         const sentiment = this.getSentimentBadge(item.sentiment);
         const categoryClass = this.getCategoryClass(item.category);
+        const itemId = this.generateItemId(item);
 
         return `
             <article class="news-item card p-6 hover:shadow-lg transition-shadow">
@@ -676,8 +679,28 @@ class NewsFeedApp {
                 <div class="news-summary bg-tertiary p-4 rounded-lg">
                     <p class="text-sm leading-relaxed">${item.summary || 'No summary available'}</p>
                 </div>
+                <div class="news-actions mt-4">
+                    <button class="btn btn-sm btn-secondary explain-article-btn"
+                            onclick="app.explainArticle('${itemId}')"
+                            data-item-id="${itemId}">
+                        🤖 Explain Article
+                    </button>
+                    <button class="btn btn-sm btn-outline categorize-article-btn"
+                            onclick="app.categorizeArticle('${itemId}')"
+                            data-item-id="${itemId}">
+                        🎯 Categorize
+                    </button>
+                </div>
+                <div class="article-explanation" id="explanation-${itemId}" style="display: none;">
+                    <!-- AI explanation will be inserted here -->
+                </div>
             </article>
         `;
+    }
+
+    generateItemId(item) {
+        // Generate a unique ID for the item based on title and source
+        return btoa(encodeURIComponent(item.title + item.source)).replace(/[^a-zA-Z0-9]/g, '').substring(0, 16);
     }
 
     getSentimentBadge(sentiment) {
@@ -759,6 +782,264 @@ class NewsFeedApp {
         });
     }
 
+    // Source Management
+    async loadSources() {
+        try {
+            const response = await fetch('/api/sources');
+            const data = await response.json();
+
+            if (data.success) {
+                this.displaySourcesSelection(data.sources);
+                this.debug('✅ Sources loaded successfully', data);
+            } else {
+                console.error('Failed to load sources:', data.error);
+            }
+        } catch (error) {
+            console.error('Error loading sources:', error);
+        }
+    }
+
+    displaySourcesSelection(sources) {
+        const container = document.getElementById('sourcesList');
+        if (!container) return;
+
+        container.innerHTML = '';
+
+        if (!sources || sources.length === 0) {
+            container.innerHTML = '<p class="text-sm text-secondary">No sources configured</p>';
+            return;
+        }
+
+        sources.forEach(source => {
+            const sourceItem = document.createElement('div');
+            sourceItem.className = 'source-checkbox-item';
+
+            sourceItem.innerHTML = `
+                <input type="checkbox"
+                       id="source-${source.name}"
+                       ${source.enabled ? 'checked' : ''}
+                       onchange="app.toggleSource('${source.name}', this.checked)">
+                <label for="source-${source.name}">
+                    <div>${source.name}</div>
+                    <div class="source-info">${source.type.toUpperCase()} • ${source.category}</div>
+                </label>
+                <div class="source-actions">
+                    <button onclick="app.editSource('${source.name}', '${source.url}')"
+                            class="btn btn-secondary btn-xs" title="Edit Source">
+                        ✏️
+                    </button>
+                    <button onclick="app.deleteSource('${source.name}')"
+                            class="btn btn-danger btn-xs" title="Delete Source">
+                        🗑️
+                    </button>
+                </div>
+            `;
+
+            container.appendChild(sourceItem);
+        });
+
+        // Update toggle all button text
+        const enabledCount = sources.filter(s => s.enabled).length;
+        const toggleAllBtn = document.getElementById('toggleAllBtn');
+        if (toggleAllBtn) {
+            toggleAllBtn.textContent = enabledCount === sources.length ? 'Disable All' : 'Enable All';
+        }
+    }
+
+    async toggleSource(sourceName, enabled) {
+        try {
+            const response = await fetch('/api/sources/toggle', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    source_name: sourceName,
+                    enabled: enabled
+                })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                this.showToast(
+                    `${sourceName} ${enabled ? 'enabled' : 'disabled'}`,
+                    'success'
+                );
+
+                // Reload sources to update UI
+                await this.loadSources();
+            } else {
+                this.showToast(`Failed to toggle source: ${data.error}`, 'error');
+
+                // Revert checkbox state
+                const checkbox = document.getElementById(`source-${sourceName}`);
+                if (checkbox) {
+                    checkbox.checked = !enabled;
+                }
+            }
+        } catch (error) {
+            console.error('Error toggling source:', error);
+            this.showToast('Error toggling source', 'error');
+
+            // Revert checkbox state
+            const checkbox = document.getElementById(`source-${sourceName}`);
+            if (checkbox) {
+                checkbox.checked = !enabled;
+            }
+        }
+    }
+
+    async toggleAllSources() {
+        try {
+            const response = await fetch('/api/sources');
+            const data = await response.json();
+
+            if (!data.success) {
+                this.showToast('Failed to load sources', 'error');
+                return;
+            }
+
+            const sources = data.sources;
+            const enabledCount = sources.filter(s => s.enabled).length;
+            const shouldEnable = enabledCount < sources.length;
+
+            // Toggle all sources
+            const promises = sources.map(source =>
+                this.toggleSourceSilent(source.name, shouldEnable)
+            );
+
+            await Promise.all(promises);
+
+            this.showToast(
+                `All sources ${shouldEnable ? 'enabled' : 'disabled'}`,
+                'success'
+            );
+
+            // Reload sources to update UI
+            await this.loadSources();
+
+        } catch (error) {
+            console.error('Error toggling all sources:', error);
+            this.showToast('Error toggling all sources', 'error');
+        }
+    }
+
+    async toggleSourceSilent(sourceName, enabled) {
+        try {
+            const response = await fetch('/api/sources/toggle', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    source_name: sourceName,
+                    enabled: enabled
+                })
+            });
+
+            return await response.json();
+        } catch (error) {
+            console.error(`Error toggling source ${sourceName}:`, error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    async editSource(sourceName, currentUrl) {
+        try {
+            const newName = prompt(`Edit source name:`, sourceName);
+            if (!newName || newName === sourceName) {
+                const newUrl = prompt(`Edit source URL:`, currentUrl);
+                if (!newUrl || newUrl === currentUrl) {
+                    return; // User cancelled or no changes
+                }
+
+                // Only URL changed
+                const response = await fetch('/api/sources/edit', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        old_name: sourceName,
+                        new_name: sourceName,
+                        new_url: newUrl
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    this.showToast(`Source "${sourceName}" updated successfully`, 'success');
+                    await this.loadSources();
+                } else {
+                    this.showToast(`Failed to update source: ${data.error}`, 'error');
+                }
+            } else {
+                // Name changed, also ask for URL
+                const newUrl = prompt(`Edit source URL:`, currentUrl);
+                if (!newUrl) {
+                    return; // User cancelled
+                }
+
+                const response = await fetch('/api/sources/edit', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        old_name: sourceName,
+                        new_name: newName,
+                        new_url: newUrl
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    this.showToast(`Source updated to "${newName}"`, 'success');
+                    await this.loadSources();
+                } else {
+                    this.showToast(`Failed to update source: ${data.error}`, 'error');
+                }
+            }
+        } catch (error) {
+            console.error('Error editing source:', error);
+            this.showToast('Error editing source', 'error');
+        }
+    }
+
+    async deleteSource(sourceName) {
+        try {
+            const confirmed = confirm(`Are you sure you want to delete the source "${sourceName}"?`);
+            if (!confirmed) {
+                return;
+            }
+
+            const response = await fetch('/api/sources/delete', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    source_name: sourceName
+                })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                this.showToast(`Source "${sourceName}" deleted successfully`, 'success');
+                await this.loadSources();
+            } else {
+                this.showToast(`Failed to delete source: ${data.error}`, 'error');
+            }
+        } catch (error) {
+            console.error('Error deleting source:', error);
+            this.showToast('Error deleting source', 'error');
+        }
+    }
+
     // Configuration
     async loadConfig() {
         try {
@@ -779,16 +1060,19 @@ class NewsFeedApp {
             const response = await fetch('/api/llm-providers');
             const data = await response.json();
 
-            if (data.success) {
+            if (data.success && data.providers) {
                 this.displayLLMProviders(data);
-                this.updateCostTracking(data.budget);
-                this.populateProviderSelectors(data.available_providers, data.available_models);
+                this.updateCostTracking(data.budget || {});
+                this.populateProviderSelectors(data.available_providers || [], data.available_models || {});
             } else {
-                this.showToast('Error loading LLM providers', 'error');
+                console.warn('LLM providers response:', data);
+                // Don't show error toast for missing providers - it's not critical
+                console.log('LLM providers not available or not configured');
             }
         } catch (error) {
             console.error('Error loading LLM providers:', error);
-            this.showToast('Error loading LLM providers', 'error');
+            // Don't show error toast - LLM providers are optional
+            console.log('LLM providers functionality not available');
         }
     }
 
@@ -844,13 +1128,19 @@ class NewsFeedApp {
         const monthlyLimit = document.getElementById('monthlyLimit');
         const budgetProgress = document.getElementById('budgetProgress');
 
-        if (dailyCost) dailyCost.textContent = `$${budget.current_daily.toFixed(2)}`;
-        if (monthlyCost) monthlyCost.textContent = `$${budget.current_monthly.toFixed(2)}`;
-        if (dailyLimit) dailyLimit.textContent = `$${budget.daily_limit.toFixed(2)}`;
-        if (monthlyLimit) monthlyLimit.textContent = `$${budget.monthly_limit.toFixed(2)}`;
+        // Provide default values if budget properties are undefined
+        const currentDaily = budget.current_daily || 0;
+        const currentMonthly = budget.current_monthly || 0;
+        const dailyLimitValue = budget.daily_limit || 10;
+        const monthlyLimitValue = budget.monthly_limit || 200;
 
-        if (budgetProgress) {
-            const dailyPercent = (budget.current_daily / budget.daily_limit) * 100;
+        if (dailyCost) dailyCost.textContent = `$${currentDaily.toFixed(2)}`;
+        if (monthlyCost) monthlyCost.textContent = `$${currentMonthly.toFixed(2)}`;
+        if (dailyLimit) dailyLimit.textContent = `$${dailyLimitValue.toFixed(2)}`;
+        if (monthlyLimit) monthlyLimit.textContent = `$${monthlyLimitValue.toFixed(2)}`;
+
+        if (budgetProgress && dailyLimitValue > 0) {
+            const dailyPercent = (currentDaily / dailyLimitValue) * 100;
             budgetProgress.style.width = `${Math.min(dailyPercent, 100)}%`;
         }
     }
@@ -913,8 +1203,15 @@ class NewsFeedApp {
             this.showToast('Performing health check...', 'info');
 
             const response = await fetch('/api/llm-providers/health-check', {
-                method: 'POST'
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
             });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
 
             const data = await response.json();
 
@@ -928,12 +1225,26 @@ class NewsFeedApp {
                     healthyCount === totalCount ? 'success' : 'warning'
                 );
 
+                // Show detailed results
+                console.log('Health check results:', results);
+
                 this.loadLLMProviders(); // Refresh the display
             } else {
                 this.showToast(`Health check failed: ${data.error}`, 'error');
             }
         } catch (error) {
-            this.showToast(`Health check error: ${error.message}`, 'error');
+            console.error('Health check error:', error);
+
+            // Provide more specific error messages
+            if (error.message.includes('Unexpected token')) {
+                this.showToast('Health check error: Server returned invalid response (check server logs)', 'error');
+            } else if (error.message.includes('HTTP 404')) {
+                this.showToast('Health check error: Endpoint not found (server may need restart)', 'error');
+            } else if (error.message.includes('Failed to fetch')) {
+                this.showToast('Health check error: Cannot connect to server', 'error');
+            } else {
+                this.showToast(`Health check error: ${error.message}`, 'error');
+            }
         }
     }
 
@@ -1149,7 +1460,7 @@ class NewsFeedApp {
             item.className = 'source-item-insight';
 
             item.innerHTML = `
-                <span class="source-name">${source.source}</span>
+                <span class="source-name">${source.name}</span>
                 <span class="source-count">${source.article_count}</span>
             `;
 
@@ -1272,9 +1583,10 @@ class NewsFeedApp {
     }
 
     renderSearchResult(result) {
-        const article = result.article;
-        const score = (result.relevance_score * 100).toFixed(0);
-        const timeAgo = this.getTimeAgo(article.timestamp);
+        // Handle both direct article objects and wrapped results
+        const article = result.article || result;
+        const score = result.relevance_score ? (result.relevance_score * 100).toFixed(0) : '100';
+        const timeAgo = this.getTimeAgo(article.timestamp || article.published_date);
 
         return `
             <div class="search-result-item">
@@ -1293,15 +1605,13 @@ class NewsFeedApp {
                 </div>
 
                 <div class="search-result-content">
-                    ${result.highlighted_text.summary || result.highlighted_text.title || article.summary || 'No summary available'}
+                    ${article.summary || article.description || 'No summary available'}
                 </div>
 
-                ${result.matched_fields.length > 0 ? `
+                ${article.source ? `
                     <div class="search-result-matched-fields">
-                        <strong>Matched in:</strong>
-                        ${result.matched_fields.map(field =>
-                            `<span class="matched-field-tag">${field}</span>`
-                        ).join('')}
+                        <strong>Source:</strong>
+                        <span class="matched-field-tag">${article.source}</span>
                     </div>
                 ` : ''}
             </div>
@@ -1706,6 +2016,1169 @@ class NewsFeedApp {
                 </button>
             </div>
         `;
+    }
+
+    // ===== AI FEATURES FUNCTIONALITY =====
+    setupAIFeatures() {
+        this.debug('🤖 Setting up AI Features');
+
+        // Initialize AI features state
+        this.aiFeatures = {
+            isVisible: false,
+            currentTab: 'chat',
+            chatHistory: [],
+            isProcessing: false
+        };
+
+        // Setup event listeners for AI features
+        this.setupAIEventListeners();
+
+        // Load AI features status
+        this.loadAIFeaturesStatus();
+
+        this.debug('✅ AI Features setup complete');
+    }
+
+    setupAIEventListeners() {
+        // Toggle AI Features Dashboard
+        const toggleBtn = document.getElementById('toggleAiFeaturesBtn');
+        if (toggleBtn) {
+            toggleBtn.addEventListener('click', () => this.toggleAIFeatures());
+        }
+
+        // AI Tab switching
+        const tabBtns = document.querySelectorAll('.ai-tab-btn');
+        tabBtns.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const tab = e.target.dataset.tab;
+                this.switchAITab(tab);
+            });
+        });
+
+        // AI Chat functionality
+        this.setupAIChatListeners();
+
+        // Other AI feature listeners
+        this.setupAIFeatureButtons();
+    }
+
+    setupAIChatListeners() {
+        const chatInput = document.getElementById('aiChatInput');
+        const sendBtn = document.getElementById('aiChatSendBtn');
+        const suggestions = document.querySelectorAll('.suggestion-btn');
+
+        if (chatInput && sendBtn) {
+            // Enable/disable send button based on input
+            chatInput.addEventListener('input', (e) => {
+                sendBtn.disabled = !e.target.value.trim();
+            });
+
+            // Send message on Enter key
+            chatInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey && !sendBtn.disabled) {
+                    e.preventDefault();
+                    this.sendAIChatMessage();
+                }
+            });
+
+            // Send button click
+            sendBtn.addEventListener('click', () => this.sendAIChatMessage());
+        }
+
+        // Suggestion buttons
+        suggestions.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const suggestion = e.target.textContent;
+                if (chatInput) {
+                    chatInput.value = suggestion;
+                    sendBtn.disabled = false;
+                    this.sendAIChatMessage();
+                }
+            });
+        });
+    }
+
+    setupAIFeatureButtons() {
+        // Smart Categorization
+        const categorizationBtn = document.getElementById('runCategorizationBtn');
+        if (categorizationBtn) {
+            categorizationBtn.addEventListener('click', () => this.runSmartCategorization());
+        }
+
+        // Content Recommendations
+        const recommendationsBtn = document.getElementById('refreshRecommendationsBtn');
+        if (recommendationsBtn) {
+            recommendationsBtn.addEventListener('click', () => this.loadContentRecommendations());
+        }
+
+        // Daily Briefing
+        const dailyBriefingBtn = document.getElementById('generateDailyBriefingBtn');
+        if (dailyBriefingBtn) {
+            dailyBriefingBtn.addEventListener('click', () => this.generateDailyBriefing());
+        }
+
+        // Topic Deep Dive
+        const topicDeepDiveBtn = document.getElementById('generateTopicDeepDiveBtn');
+        const runDeepDiveBtn = document.getElementById('runDeepDiveBtn');
+
+        if (topicDeepDiveBtn) {
+            topicDeepDiveBtn.addEventListener('click', () => this.toggleTopicDeepDiveInput());
+        }
+
+        if (runDeepDiveBtn) {
+            runDeepDiveBtn.addEventListener('click', () => this.runTopicDeepDive());
+        }
+
+        // Relationship Analysis
+        const relationshipsBtn = document.getElementById('analyzeRelationshipsBtn');
+        if (relationshipsBtn) {
+            relationshipsBtn.addEventListener('click', () => this.analyzeContentRelationships());
+        }
+    }
+
+    toggleAIFeatures() {
+        const section = document.getElementById('aiFeaturesSection');
+        const btn = document.getElementById('toggleAiFeaturesBtn');
+
+        if (section && btn) {
+            this.aiFeatures.isVisible = !this.aiFeatures.isVisible;
+
+            if (this.aiFeatures.isVisible) {
+                section.style.display = 'block';
+                btn.textContent = '🤖 Hide AI Features';
+                btn.classList.add('active');
+
+                // Load initial data for current tab
+                this.loadAITabData(this.aiFeatures.currentTab);
+            } else {
+                section.style.display = 'none';
+                btn.textContent = '🤖 AI Features';
+                btn.classList.remove('active');
+            }
+        }
+    }
+
+    switchAITab(tabName) {
+        // Update active tab button
+        document.querySelectorAll('.ai-tab-btn').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
+
+        // Update active tab content
+        document.querySelectorAll('.ai-tab-content').forEach(content => {
+            content.classList.remove('active');
+        });
+        document.getElementById(`${tabName}Tab`).classList.add('active');
+
+        // Update current tab state
+        this.aiFeatures.currentTab = tabName;
+
+        // Load data for the new tab
+        this.loadAITabData(tabName);
+    }
+
+    loadAITabData(tabName) {
+        switch (tabName) {
+            case 'chat':
+                // Chat is always ready
+                break;
+            case 'categorization':
+                // Load categorization if not already loaded
+                break;
+            case 'recommendations':
+                this.loadContentRecommendations();
+                break;
+            case 'briefing':
+                // Briefing is generated on demand
+                break;
+            case 'relationships':
+                // Relationships are analyzed on demand
+                break;
+        }
+    }
+
+    async loadAIFeaturesStatus() {
+        try {
+            const response = await fetch('/api/ai-features/status');
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+
+            if (data.success) {
+                this.debug('AI Features Status:', data);
+                // You could update UI based on which features are available
+                this.aiFeatures.status = data;
+            } else {
+                console.warn('AI Features status check failed:', data.error);
+            }
+        } catch (error) {
+            console.error('Error loading AI features status:', error);
+            // Don't show error to user as this is not critical
+        }
+    }
+
+    // AI Chat Methods (enhanced versions are at the end of the class)
+
+    formatMessageContent(content) {
+        // Basic formatting for AI responses
+        if (!content || typeof content !== 'string') {
+            return String(content || '');
+        }
+
+        return content
+            .replace(/\n/g, '<br>')
+            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+            .replace(/\*(.*?)\*/g, '<em>$1</em>');
+    }
+
+    formatMarkdownContent(content) {
+        // Enhanced markdown formatting for briefings
+        if (!content || typeof content !== 'string') {
+            return String(content || '');
+        }
+
+        let formatted = content
+            // Escape HTML entities first
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+
+            // Headers (process from most specific to least specific)
+            .replace(/^### (.*$)/gm, '<h3 class="briefing-h3">$1</h3>')
+            .replace(/^## (.*$)/gm, '<h2 class="briefing-h2">$1</h2>')
+            .replace(/^# (.*$)/gm, '<h1 class="briefing-h1">$1</h1>')
+
+            // Bold and italic
+            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+            .replace(/\*(.*?)\*/g, '<em>$1</em>')
+
+            // Lists - handle bullet points and numbered lists
+            .replace(/^[•\-\*] (.*$)/gm, '<li class="briefing-bullet">$1</li>')
+            .replace(/^\d+\. (.*$)/gm, '<li class="briefing-numbered">$1</li>');
+
+        // Wrap consecutive list items in proper list tags
+        formatted = formatted.replace(
+            /(<li class="briefing-bullet">.*?<\/li>)(\s*<li class="briefing-bullet">.*?<\/li>)*/gs,
+            (match) => `<ul class="briefing-list">${match}</ul>`
+        );
+
+        formatted = formatted.replace(
+            /(<li class="briefing-numbered">.*?<\/li>)(\s*<li class="briefing-numbered">.*?<\/li>)*/gs,
+            (match) => `<ol class="briefing-list">${match}</ol>`
+        );
+
+        // Handle paragraphs and line breaks
+        formatted = formatted
+            // Split into lines and process
+            .split('\n')
+            .map(line => {
+                line = line.trim();
+                if (!line) return '';
+
+                // Skip lines that are already HTML elements
+                if (line.match(/^<(h[1-6]|ul|ol|li)/)) {
+                    return line;
+                }
+
+                // Wrap regular text in paragraph tags
+                return `<p class="briefing-paragraph">${line}</p>`;
+            })
+            .filter(line => line) // Remove empty lines
+            .join('\n');
+
+        return formatted;
+    }
+
+    // Smart Categorization Methods
+    async runSmartCategorization() {
+        const btn = document.getElementById('runCategorizationBtn');
+        const resultsContainer = document.getElementById('categorizationResults');
+
+        if (!btn || !resultsContainer) return;
+
+        btn.disabled = true;
+        btn.innerHTML = '<div class="spinner"></div> Analyzing...';
+
+        try {
+            // Get all articles for categorization
+            const articles = this.allNewsData;
+            if (!articles || articles.length === 0) {
+                resultsContainer.innerHTML = '<p class="text-secondary">No articles available for categorization. Please load news first.</p>';
+                return;
+            }
+
+            const results = [];
+
+            // Process articles in batches to avoid overwhelming the UI
+            for (let i = 0; i < Math.min(articles.length, 10); i++) {
+                const article = articles[i];
+
+                const response = await fetch('/api/ai-features/smart-categorization', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ article: article })
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    results.push({
+                        title: article.title,
+                        categories: data.categories
+                    });
+                }
+            }
+
+            this.displayCategorizationResults(results);
+
+        } catch (error) {
+            console.error('Smart categorization error:', error);
+            resultsContainer.innerHTML = '<p class="text-error">Error running categorization analysis.</p>';
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '🔄 Analyze All Articles';
+        }
+    }
+
+    displayCategorizationResults(results) {
+        const container = document.getElementById('categorizationResults');
+        if (!container || !results.length) return;
+
+        let html = '<div class="categorization-results-list">';
+
+        results.forEach(result => {
+            html += `
+                <div class="categorization-item">
+                    <h5 class="categorization-title">${result.title}</h5>
+                    <div class="categorization-tags">
+            `;
+
+            let hasCategories = false;
+
+            if (result.categories && result.categories.topics && result.categories.topics.length > 0) {
+                result.categories.topics.forEach(topic => {
+                    html += `<span class="category-tag topic-tag">${topic.name} (${Math.round(topic.confidence * 100)}%)</span>`;
+                    hasCategories = true;
+                });
+            }
+
+            if (result.categories && result.categories.industries && result.categories.industries.length > 0) {
+                result.categories.industries.forEach(industry => {
+                    html += `<span class="category-tag industry-tag">${industry.name} (${Math.round(industry.confidence * 100)}%)</span>`;
+                    hasCategories = true;
+                });
+            }
+
+            if (!hasCategories) {
+                html += `<span class="category-tag neutral-tag">No categories detected</span>`;
+            }
+
+            html += `
+                    </div>
+                </div>
+            `;
+        });
+
+        html += '</div>';
+        container.innerHTML = html;
+    }
+
+    // Content Recommendations Methods
+    async loadContentRecommendations() {
+        const container = document.getElementById('recommendationsResults');
+        if (!container) return;
+
+        container.innerHTML = '<p class="text-secondary">Loading recommendations...</p>';
+
+        try {
+            const response = await fetch('/api/ai-features/recommendations');
+            const data = await response.json();
+
+            if (data.success && data.recommendations) {
+                this.displayRecommendations(data.recommendations);
+            } else {
+                container.innerHTML = '<p class="text-secondary">No recommendations available at this time.</p>';
+            }
+
+        } catch (error) {
+            console.error('Recommendations error:', error);
+            container.innerHTML = '<p class="text-error">Error loading recommendations.</p>';
+        }
+    }
+
+    displayRecommendations(recommendations) {
+        const container = document.getElementById('recommendationsResults');
+        if (!container) return;
+
+        let html = '<div class="recommendations-list">';
+
+        recommendations.forEach(rec => {
+            // Extract data from the correct structure
+            const article = rec.article || rec;
+            const title = article.title || 'No title available';
+            const source = article.source || 'Unknown source';
+            const score = rec.score || 0;
+            const reasons = rec.reasons || ['Recommended for you'];
+            const reason = Array.isArray(reasons) ? reasons.join(', ') : reasons;
+            const summary = article.summary || article.description || '';
+            const link = article.link || '#';
+
+            html += `
+                <div class="recommendation-item">
+                    <h5 class="recommendation-title">
+                        <a href="${link}" target="_blank" rel="noopener noreferrer">${title}</a>
+                    </h5>
+                    <p class="recommendation-summary">${summary.substring(0, 150)}${summary.length > 150 ? '...' : ''}</p>
+                    <p class="recommendation-reason">💡 ${reason}</p>
+                    <div class="recommendation-meta">
+                        <span class="recommendation-score">Score: ${Math.round(score * 100)}%</span>
+                        <span class="recommendation-source">📰 ${source}</span>
+                        <span class="recommendation-category">${article.category || 'General'}</span>
+                    </div>
+                </div>
+            `;
+        });
+
+        html += '</div>';
+        container.innerHTML = html;
+    }
+
+    // Smart Briefing Methods
+    async generateDailyBriefing() {
+        const btn = document.getElementById('generateDailyBriefingBtn');
+        const container = document.getElementById('briefingResults');
+
+        if (!btn || !container) return;
+
+        btn.disabled = true;
+        btn.innerHTML = '<div class="spinner"></div> Generating...';
+        container.innerHTML = '<p class="text-secondary">Generating daily briefing...</p>';
+
+        try {
+            const response = await fetch('/api/ai-features/daily-briefing');
+            const data = await response.json();
+
+            if (data.success && data.briefing) {
+                this.displayBriefing(data.briefing, 'Daily Briefing');
+            } else {
+                container.innerHTML = '<p class="text-error">Error generating daily briefing.</p>';
+            }
+
+        } catch (error) {
+            console.error('Daily briefing error:', error);
+            container.innerHTML = '<p class="text-error">Error generating daily briefing.</p>';
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '📅 Daily Briefing';
+        }
+    }
+
+    toggleTopicDeepDiveInput() {
+        const inputSection = document.getElementById('topicDeepDiveInput');
+        const btn = document.getElementById('generateTopicDeepDiveBtn');
+
+        if (inputSection && btn) {
+            const isVisible = inputSection.style.display !== 'none';
+            inputSection.style.display = isVisible ? 'none' : 'block';
+            btn.textContent = isVisible ? '🔍 Topic Deep Dive' : '❌ Cancel';
+
+            if (!isVisible) {
+                document.getElementById('deepDiveTopic')?.focus();
+            }
+        }
+    }
+
+    async runTopicDeepDive() {
+        const topicInput = document.getElementById('deepDiveTopic');
+        const btn = document.getElementById('runDeepDiveBtn');
+        const container = document.getElementById('briefingResults');
+
+        if (!topicInput || !btn || !container) return;
+
+        const topic = topicInput.value.trim();
+        if (!topic) {
+            this.showToast('Please enter a topic for deep dive analysis', 'warning');
+            return;
+        }
+
+        btn.disabled = true;
+        btn.innerHTML = '<div class="spinner"></div> Analyzing...';
+        container.innerHTML = '<p class="text-secondary">Analyzing topic...</p>';
+
+        try {
+            const response = await fetch(`/api/ai-features/topic-deep-dive?topic=${encodeURIComponent(topic)}`);
+            const data = await response.json();
+
+            if (data.success && data.deep_dive) {
+                this.displayBriefing(data.deep_dive, `Deep Dive: ${topic}`);
+                this.toggleTopicDeepDiveInput(); // Hide input section
+                topicInput.value = '';
+            } else {
+                container.innerHTML = '<p class="text-error">Error generating topic deep dive.</p>';
+            }
+
+        } catch (error) {
+            console.error('Topic deep dive error:', error);
+            container.innerHTML = '<p class="text-error">Error generating topic deep dive.</p>';
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = 'Analyze';
+        }
+    }
+
+    displayBriefing(briefing, title) {
+        const container = document.getElementById('briefingResults');
+        if (!container) return;
+
+        let html = `
+            <div class="briefing-content">
+                <h4 class="briefing-title">${title}</h4>
+                <div class="briefing-body">
+        `;
+
+        if (typeof briefing === 'string') {
+            // Format as markdown if it contains markdown syntax
+            if (briefing.includes('#') || briefing.includes('**') || briefing.includes('•')) {
+                html += `<div class="briefing-markdown">${this.formatMarkdownContent(briefing)}</div>`;
+            } else {
+                html += `<p class="briefing-paragraph">${briefing}</p>`;
+            }
+        } else if (briefing.content) {
+            // Format the content as markdown
+            if (typeof briefing.content === 'string' &&
+                (briefing.content.includes('#') || briefing.content.includes('**') || briefing.content.includes('•'))) {
+                html += `<div class="briefing-markdown">${this.formatMarkdownContent(briefing.content)}</div>`;
+            } else {
+                html += `<div class="briefing-text">${briefing.content}</div>`;
+            }
+        } else {
+            // Handle structured briefing data
+            if (briefing.analysis) {
+                html += `<div class="briefing-section">
+                    <h5>Analysis</h5>
+                    <div class="briefing-markdown">${this.formatMarkdownContent(briefing.analysis)}</div>
+                </div>`;
+            }
+
+            if (briefing.key_points) {
+                html += `<div class="briefing-section">
+                    <h5>Key Points</h5>
+                    <ul class="briefing-list">`;
+                briefing.key_points.forEach(point => {
+                    html += `<li class="briefing-bullet">${point}</li>`;
+                });
+                html += `</ul></div>`;
+            }
+
+            if (briefing.recommendations) {
+                html += `<div class="briefing-section">
+                    <h5>Recommendations</h5>
+                    <div class="briefing-markdown">${this.formatMarkdownContent(briefing.recommendations)}</div>
+                </div>`;
+            }
+        }
+
+        // Add metadata if available
+        if (briefing.metadata) {
+            html += `
+                <div class="briefing-metadata">
+                    <div class="metadata-grid">
+                        ${briefing.metadata.articles_analyzed ? `<span class="metadata-item">📰 ${briefing.metadata.articles_analyzed} articles analyzed</span>` : ''}
+                        ${briefing.metadata.topics_covered ? `<span class="metadata-item">🏷️ ${briefing.metadata.topics_covered} topics covered</span>` : ''}
+                        ${briefing.date ? `<span class="metadata-item">📅 ${briefing.date}</span>` : ''}
+                    </div>
+                </div>
+            `;
+        }
+
+        html += `
+                </div>
+                <div class="briefing-meta">
+                    <small class="text-secondary">Generated at ${new Date().toLocaleString()}</small>
+                </div>
+            </div>
+        `;
+
+        container.innerHTML = html;
+    }
+
+    // Content Relationships Methods
+    async analyzeContentRelationships() {
+        const btn = document.getElementById('analyzeRelationshipsBtn');
+        const container = document.getElementById('relationshipsResults');
+
+        if (!btn || !container) return;
+
+        btn.disabled = true;
+        btn.innerHTML = '<div class="spinner"></div> Analyzing...';
+        container.innerHTML = '<p class="text-secondary">Analyzing content relationships...</p>';
+
+        try {
+            const articles = this.allNewsData;
+            if (!articles || articles.length === 0) {
+                container.innerHTML = '<p class="text-secondary">No articles available for relationship analysis. Please load news first.</p>';
+                return;
+            }
+
+            const response = await fetch('/api/ai-features/relationship-analysis', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ articles: articles.slice(0, 20) }) // Limit for performance
+            });
+
+            const data = await response.json();
+
+            if (data.success && data.relationships) {
+                this.displayRelationships(data.relationships);
+            } else {
+                container.innerHTML = '<p class="text-error">Error analyzing content relationships.</p>';
+            }
+
+        } catch (error) {
+            console.error('Relationship analysis error:', error);
+            container.innerHTML = '<p class="text-error">Error analyzing content relationships.</p>';
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '🔄 Analyze Relationships';
+        }
+    }
+
+    displayRelationships(relationships) {
+        const container = document.getElementById('relationshipsResults');
+        if (!container) return;
+
+        let html = '<div class="relationships-content">';
+
+        if (relationships.similar_articles && relationships.similar_articles.length > 0) {
+            html += `
+                <div class="relationship-section">
+                    <h5>📎 Similar Articles</h5>
+                    <div class="relationship-items">
+            `;
+
+            relationships.similar_articles.forEach(group => {
+                html += `
+                    <div class="relationship-group">
+                        <div class="relationship-score">Similarity: ${Math.round(group.similarity_score * 100)}%</div>
+                        <div class="relationship-articles">
+                `;
+
+                group.articles.forEach(article => {
+                    html += `<div class="relationship-article">${article.title}</div>`;
+                });
+
+                html += `
+                        </div>
+                    </div>
+                `;
+            });
+
+            html += `
+                    </div>
+                </div>
+            `;
+        }
+
+        if (relationships.follow_ups && relationships.follow_ups.length > 0) {
+            html += `
+                <div class="relationship-section">
+                    <h5>🔄 Follow-up Stories</h5>
+                    <div class="relationship-items">
+            `;
+
+            relationships.follow_ups.forEach(followUp => {
+                html += `
+                    <div class="relationship-group">
+                        <div class="relationship-original">Original: ${followUp.original_article.title}</div>
+                        <div class="relationship-followup">Follow-up: ${followUp.follow_up_article.title}</div>
+                        <div class="relationship-score">Confidence: ${Math.round(followUp.confidence * 100)}%</div>
+                    </div>
+                `;
+            });
+
+            html += `
+                    </div>
+                </div>
+            `;
+        }
+
+        html += '</div>';
+        container.innerHTML = html;
+    }
+
+    // Individual Article AI Features
+    async explainArticle(itemId) {
+        const btn = document.querySelector(`[data-item-id="${itemId}"].explain-article-btn`);
+        const explanationDiv = document.getElementById(`explanation-${itemId}`);
+
+        if (!btn || !explanationDiv) return;
+
+        // Find the article data
+        const article = this.findArticleById(itemId);
+        if (!article) {
+            this.showToast('Article not found', 'error');
+            return;
+        }
+
+        // Toggle explanation visibility
+        if (explanationDiv.style.display !== 'none') {
+            explanationDiv.style.display = 'none';
+            btn.textContent = '🤖 Explain Article';
+            return;
+        }
+
+        btn.disabled = true;
+        btn.innerHTML = '<div class="spinner"></div> Explaining...';
+        explanationDiv.style.display = 'block';
+        explanationDiv.innerHTML = '<p class="text-secondary">Generating explanation...</p>';
+
+        try {
+            const response = await fetch('/api/ai-features/explain-article', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    article: article,
+                    detail_level: 'medium'
+                })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                // Handle the structured explanation response from AI assistant
+                let explanationText = '';
+                let keyInfo = '';
+                let followUps = [];
+
+                if (data.explanation && typeof data.explanation === 'object') {
+                    // Extract main explanation text
+                    if (data.explanation.explanation && data.explanation.explanation.main_explanation) {
+                        explanationText = data.explanation.explanation.main_explanation;
+                    } else if (data.explanation.explanation) {
+                        explanationText = data.explanation.explanation;
+                    } else if (typeof data.explanation === 'string') {
+                        explanationText = data.explanation;
+                    }
+
+                    // Extract key information
+                    if (data.explanation.key_information) {
+                        const keyInfoObj = data.explanation.key_information;
+                        let keyInfoParts = [];
+
+                        if (keyInfoObj.main_topics && keyInfoObj.main_topics.length > 0) {
+                            keyInfoParts.push(`<strong>Topics:</strong> ${keyInfoObj.main_topics.join(', ')}`);
+                        }
+
+                        if (keyInfoObj.sentiment && keyInfoObj.sentiment !== 'neutral') {
+                            keyInfoParts.push(`<strong>Sentiment:</strong> ${keyInfoObj.sentiment}`);
+                        }
+
+                        if (keyInfoParts.length > 0) {
+                            keyInfo = `<div class="explanation-key-info">${keyInfoParts.join('<br>')}</div>`;
+                        }
+                    }
+
+                    // Extract follow-up questions
+                    if (data.explanation.follow_up_questions && data.explanation.follow_up_questions.length > 0) {
+                        followUps = data.explanation.follow_up_questions.slice(0, 3);
+                    }
+                } else if (typeof data.explanation === 'string') {
+                    explanationText = data.explanation;
+                }
+
+                if (!explanationText) {
+                    explanationText = 'No explanation available';
+                }
+
+                let followUpHtml = '';
+                if (followUps.length > 0) {
+                    followUpHtml = `
+                        <div class="explanation-follow-ups">
+                            <h6>💡 Follow-up Questions:</h6>
+                            <div class="follow-up-questions">
+                                ${followUps.map((q, index) => `
+                                    <button class="follow-up-question-btn"
+                                            onclick="app.askFollowUpQuestion('${itemId}', '${q.replace(/'/g, "\\'")}')">
+                                        ${q}
+                                    </button>
+                                `).join('')}
+                            </div>
+                            <div class="follow-up-actions">
+                                <button class="btn btn-sm btn-primary"
+                                        onclick="app.openArticleChatContext('${itemId}')">
+                                    💬 Chat about this article
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                explanationDiv.innerHTML = `
+                    <div class="article-explanation-content">
+                        <h5>🤖 AI Explanation</h5>
+                        <div class="explanation-text">${this.formatMessageContent(explanationText)}</div>
+                        ${keyInfo}
+                        ${followUpHtml}
+                    </div>
+                `;
+                btn.textContent = '❌ Hide Explanation';
+            } else {
+                explanationDiv.innerHTML = `<p class="text-error">Error: ${data.error}</p>`;
+                btn.textContent = '🤖 Explain Article';
+            }
+
+        } catch (error) {
+            console.error('Article explanation error:', error);
+            explanationDiv.innerHTML = '<p class="text-error">Error generating explanation.</p>';
+            btn.textContent = '🤖 Explain Article';
+        } finally {
+            btn.disabled = false;
+        }
+    }
+
+    async categorizeArticle(itemId) {
+        const btn = document.querySelector(`[data-item-id="${itemId}"].categorize-article-btn`);
+
+        if (!btn) return;
+
+        // Find the article data
+        const article = this.findArticleById(itemId);
+        if (!article) {
+            this.showToast('Article not found', 'error');
+            return;
+        }
+
+        btn.disabled = true;
+        btn.innerHTML = '<div class="spinner"></div> Categorizing...';
+
+        try {
+            const response = await fetch('/api/ai-features/smart-categorization', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ article: article })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                // Show categorization results in a toast or modal
+                let categoryText = 'Categories: ';
+                let hasCategories = false;
+
+                if (data.categories && data.categories.topics && data.categories.topics.length > 0) {
+                    categoryText += data.categories.topics.map(t => `${t.name} (${Math.round(t.confidence * 100)}%)`).join(', ');
+                    hasCategories = true;
+                }
+
+                if (data.categories && data.categories.industries && data.categories.industries.length > 0) {
+                    if (hasCategories) categoryText += ', ';
+                    categoryText += data.categories.industries.map(i => `${i.name} (${Math.round(i.confidence * 100)}%)`).join(', ');
+                    hasCategories = true;
+                }
+
+                if (!hasCategories) {
+                    categoryText = 'No specific categories detected';
+                }
+
+                this.showToast(categoryText, 'success', 5000);
+                btn.textContent = '✅ Categorized';
+
+                // Optionally update the article's category badge
+                setTimeout(() => {
+                    btn.textContent = '🎯 Categorize';
+                }, 3000);
+            } else {
+                this.showToast(`Categorization error: ${data.error}`, 'error');
+                btn.textContent = '🎯 Categorize';
+            }
+
+        } catch (error) {
+            console.error('Article categorization error:', error);
+            this.showToast('Error categorizing article', 'error');
+            btn.textContent = '🎯 Categorize';
+        } finally {
+            btn.disabled = false;
+        }
+    }
+
+    findArticleById(itemId) {
+        // Find article in the current news data
+        for (const article of this.allNewsData) {
+            if (this.generateItemId(article) === itemId) {
+                return article;
+            }
+        }
+        return null;
+    }
+
+    // Article-specific chat functionality
+    async askFollowUpQuestion(itemId, question) {
+        // Find the article
+        const article = this.findArticleById(itemId);
+        if (!article) {
+            this.showToast('Article not found', 'error');
+            return;
+        }
+
+        // Open AI Features if not already open
+        if (!this.aiFeatures.isVisible) {
+            this.toggleAIFeatures();
+        }
+
+        // Switch to chat tab
+        this.switchAITab('chat');
+
+        // Add context message about the article
+        const contextMessage = `I'm asking about the article: "${article.title}" from ${article.source}`;
+        this.addChatMessage(contextMessage, 'user');
+
+        // Add the follow-up question
+        const chatInput = document.getElementById('aiChatInput');
+        if (chatInput) {
+            chatInput.value = question;
+
+            // Trigger the send
+            await this.sendAIChatMessage();
+        }
+
+        // Scroll to AI features section
+        document.getElementById('aiFeaturesSection')?.scrollIntoView({
+            behavior: 'smooth',
+            block: 'start'
+        });
+    }
+
+    async openArticleChatContext(itemId) {
+        // Find the article
+        const article = this.findArticleById(itemId);
+        if (!article) {
+            this.showToast('Article not found', 'error');
+            return;
+        }
+
+        // Open AI Features if not already open
+        if (!this.aiFeatures.isVisible) {
+            this.toggleAIFeatures();
+        }
+
+        // Switch to chat tab
+        this.switchAITab('chat');
+
+        // Set up article context in chat
+        const contextMessage = `Let's discuss this article: "${article.title}" from ${article.source}. ${article.summary ? 'Summary: ' + article.summary.substring(0, 200) + '...' : ''}`;
+
+        // Add context to chat input
+        const chatInput = document.getElementById('aiChatInput');
+        if (chatInput) {
+            chatInput.value = `Tell me more about: ${article.title}`;
+            chatInput.focus();
+        }
+
+        // Add a system message to provide context
+        this.addChatMessage(`📰 Article Context: "${article.title}" from ${article.source}`, 'system');
+
+        // Scroll to AI features section
+        document.getElementById('aiFeaturesSection')?.scrollIntoView({
+            behavior: 'smooth',
+            block: 'start'
+        });
+
+        this.showToast('Chat context set for this article. Ask your questions!', 'success');
+    }
+
+    // Enhanced chat message method to handle system messages
+    addChatMessage(content, sender, isError = false) {
+        const messagesContainer = document.getElementById('aiChatMessages');
+        if (!messagesContainer) return;
+
+        const messageDiv = document.createElement('div');
+
+        if (sender === 'system') {
+            messageDiv.className = 'ai-message system-context-message';
+            messageDiv.innerHTML = `
+                <div class="message-avatar">📰</div>
+                <div class="message-content system-context">
+                    <p>${this.formatMessageContent(content)}</p>
+                </div>
+            `;
+        } else {
+            messageDiv.className = `ai-message ${sender === 'user' ? 'user-message' : 'system-message'}`;
+            const avatar = sender === 'user' ? '👤' : (isError ? '⚠️' : '🤖');
+
+            messageDiv.innerHTML = `
+                <div class="message-avatar">${avatar}</div>
+                <div class="message-content">
+                    <p>${this.formatMessageContent(content)}</p>
+                </div>
+            `;
+        }
+
+        messagesContainer.appendChild(messageDiv);
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+
+    addFollowUpSuggestions(suggestions) {
+        const messagesContainer = document.getElementById('aiChatMessages');
+        if (!messagesContainer || !suggestions.length) return;
+
+        const suggestionsDiv = document.createElement('div');
+        suggestionsDiv.className = 'ai-message suggestions-message';
+
+        let suggestionsHtml = `
+            <div class="message-avatar">💡</div>
+            <div class="message-content suggestions-content">
+                <p><strong>Follow-up suggestions:</strong></p>
+                <div class="chat-follow-up-suggestions">
+        `;
+
+        suggestions.forEach(suggestion => {
+            suggestionsHtml += `
+                <button class="chat-suggestion-btn" onclick="app.useChatSuggestion('${suggestion.replace(/'/g, "\\'")}')">
+                    ${suggestion}
+                </button>
+            `;
+        });
+
+        suggestionsHtml += `
+                </div>
+            </div>
+        `;
+
+        suggestionsDiv.innerHTML = suggestionsHtml;
+        messagesContainer.appendChild(suggestionsDiv);
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+
+    useChatSuggestion(suggestion) {
+        const chatInput = document.getElementById('aiChatInput');
+        if (chatInput) {
+            chatInput.value = suggestion;
+            chatInput.focus();
+
+            // Auto-send the suggestion
+            this.sendAIChatMessage();
+        }
+    }
+
+    // Enhanced send chat message to include article context
+    async sendAIChatMessage() {
+        const chatInput = document.getElementById('aiChatInput');
+        const sendBtn = document.getElementById('aiChatSendBtn');
+        const messagesContainer = document.getElementById('aiChatMessages');
+
+        if (!chatInput || !messagesContainer || this.aiFeatures.isProcessing) return;
+
+        const message = chatInput.value.trim();
+        if (!message) return;
+
+        // Disable input while processing
+        this.aiFeatures.isProcessing = true;
+        chatInput.disabled = true;
+        sendBtn.disabled = true;
+        sendBtn.innerHTML = '<div class="spinner"></div>';
+
+        try {
+            // Add user message to chat (but not system context messages)
+            if (!message.startsWith('📰 Article Context:')) {
+                this.addChatMessage(message, 'user');
+            }
+            chatInput.value = '';
+
+            // Prepare context including recent articles for better responses
+            const recentArticles = this.allNewsData.slice(0, 5); // Include recent articles for context
+
+            // Send to AI assistant
+            const response = await fetch('/api/ai-features/ai-chat', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    message: message,
+                    context: {
+                        conversation_history: this.aiFeatures.chatHistory || [],
+                        recent_articles: recentArticles,
+                        chat_mode: 'article_discussion'
+                    }
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+
+            if (data.success && data.response) {
+                // Handle the structured response from AI assistant chat
+                let responseText = '';
+                let followUpSuggestions = [];
+
+                if (typeof data.response === 'string') {
+                    responseText = data.response;
+                } else if (data.response && typeof data.response === 'object') {
+                    // Extract main message text
+                    if (data.response.message) {
+                        responseText = data.response.message;
+                    } else if (data.response.response) {
+                        responseText = data.response.response;
+                    } else if (data.response.content) {
+                        responseText = data.response.content;
+                    } else if (data.response.text) {
+                        responseText = data.response.text;
+                    } else {
+                        // Fallback: try to extract meaningful content from object
+                        responseText = JSON.stringify(data.response, null, 2);
+                    }
+
+                    // Extract follow-up suggestions if available
+                    if (data.response.follow_up_suggestions && Array.isArray(data.response.follow_up_suggestions)) {
+                        followUpSuggestions = data.response.follow_up_suggestions.slice(0, 3);
+                    }
+                } else {
+                    responseText = 'No response available';
+                }
+
+                // Add AI response to chat
+                this.addChatMessage(responseText, 'ai');
+
+                // Add follow-up suggestions if available
+                if (followUpSuggestions.length > 0) {
+                    this.addFollowUpSuggestions(followUpSuggestions);
+                }
+
+                // Update chat history
+                this.aiFeatures.chatHistory = this.aiFeatures.chatHistory || [];
+                this.aiFeatures.chatHistory.push(
+                    { role: 'user', content: message },
+                    { role: 'assistant', content: responseText }
+                );
+            } else {
+                const errorMsg = data.error || 'Unknown error occurred';
+                this.addChatMessage(`Sorry, I encountered an error: ${errorMsg}`, 'ai', true);
+            }
+
+        } catch (error) {
+            console.error('AI Chat error:', error);
+            this.addChatMessage('Sorry, I\'m having trouble connecting right now. Please try again.', 'ai', true);
+        } finally {
+            // Re-enable input
+            this.aiFeatures.isProcessing = false;
+            chatInput.disabled = false;
+            sendBtn.disabled = false;
+            sendBtn.innerHTML = '<span class="send-icon">📤</span>';
+            chatInput.focus();
+        }
     }
 }
 

@@ -165,11 +165,81 @@
             color: var(--text-inverse);
         }
 
+        .sources-selection {
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid var(--border-primary);
+            border-radius: var(--radius-md);
+            padding: var(--space-2);
+            background-color: var(--color-gray-800);
+        }
+
+        .source-checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: var(--space-2);
+            padding: var(--space-2);
+            margin-bottom: var(--space-1);
+            border-radius: var(--radius-sm);
+            transition: background-color 0.2s ease;
+        }
+
+        .source-checkbox-item:hover {
+            background-color: var(--color-gray-700);
+        }
+
+        .source-actions {
+            display: flex;
+            gap: 0.25rem;
+            margin-left: auto;
+        }
+
+        .source-actions button {
+            padding: 0.25rem;
+            min-width: auto;
+            font-size: 0.75rem;
+        }
+
+        .source-checkbox-item input[type="checkbox"] {
+            margin: 0;
+        }
+
+        .source-checkbox-item label {
+            flex: 1;
+            margin: 0;
+            cursor: pointer;
+            font-size: var(--text-sm);
+            color: var(--text-inverse);
+        }
+
+        .source-checkbox-item .source-info {
+            font-size: var(--text-xs);
+            color: var(--text-secondary);
+            margin-left: 1.5rem;
+        }
+
+        .add-source-section {
+            margin-top: var(--space-3);
+            padding-top: var(--space-3);
+            border-top: 1px solid var(--border-primary);
+        }
+
+        .add-source-section summary {
+            color: var(--text-inverse);
+            font-weight: 500;
+        }
+
+        .btn-xs {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.75rem;
+        }
+
         .main-content {
             flex: 1;
             padding: var(--space-6);
             max-width: calc(100vw - 350px);
             overflow-x: hidden;
+            transition: max-width 0.3s ease;
         }
 
         .header {
@@ -349,18 +419,33 @@
             <!-- News Sources Section -->
             <div class="sidebar-section">
                 <h3>📡 News Sources</h3>
-                <div id="sourcesList" class="mb-4"></div>
                 <div class="mb-3">
-                    <label for="sourceName" class="form-label">Source Name:</label>
-                    <input type="text" id="sourceName" class="form-input" placeholder="e.g., My Tech Blog">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="form-label">Select Sources to Fetch:</span>
+                        <button onclick="app.toggleAllSources()" class="btn btn-secondary btn-xs" id="toggleAllBtn">
+                            Toggle All
+                        </button>
+                    </div>
+                    <div id="sourcesList" class="sources-selection"></div>
                 </div>
-                <div class="mb-3">
-                    <label for="sourceUrl" class="form-label">RSS/API URL:</label>
-                    <input type="text" id="sourceUrl" class="form-input" placeholder="e.g., https://example.com/feed.xml">
-                </div>
-                <button onclick="addSource()" class="btn btn-primary btn-sm">
-                    ➕ Add Source
-                </button>
+
+                <!-- Collapsible Add Source Section -->
+                <details class="add-source-section">
+                    <summary class="form-label" style="cursor: pointer; margin-bottom: 0.5rem;">
+                        ➕ Add New Source
+                    </summary>
+                    <div class="mb-3">
+                        <label for="sourceName" class="form-label">Source Name:</label>
+                        <input type="text" id="sourceName" class="form-input" placeholder="e.g., My Tech Blog">
+                    </div>
+                    <div class="mb-3">
+                        <label for="sourceUrl" class="form-label">RSS/API URL:</label>
+                        <input type="text" id="sourceUrl" class="form-input" placeholder="e.g., https://example.com/feed.xml">
+                    </div>
+                    <button onclick="addSource()" class="btn btn-primary btn-sm">
+                        ➕ Add Source
+                    </button>
+                </details>
             </div>
 
             <!-- Multi-LLM Provider Section -->
@@ -612,11 +697,140 @@
                 </div>
             </section>
 
+            <!-- AI Features Dashboard -->
+            <section class="ai-features-dashboard" id="aiFeaturesSection" style="display: none;">
+                <div class="ai-features-header">
+                    <h3>🤖 AI Features Dashboard</h3>
+                    <div class="ai-features-tabs">
+                        <button class="ai-tab-btn active" data-tab="chat">💬 AI Assistant</button>
+                        <button class="ai-tab-btn" data-tab="categorization">🎯 Smart Categories</button>
+                        <button class="ai-tab-btn" data-tab="recommendations">💡 Recommendations</button>
+                        <button class="ai-tab-btn" data-tab="briefing">📊 Briefings</button>
+                        <button class="ai-tab-btn" data-tab="relationships">🔗 Relationships</button>
+                    </div>
+                </div>
+
+                <!-- AI Chat Assistant Tab -->
+                <div class="ai-tab-content active" id="chatTab">
+                    <div class="ai-chat-container">
+                        <div class="ai-chat-header">
+                            <h4>💬 AI News Assistant</h4>
+                            <p class="text-sm text-secondary">Ask questions about the news, get explanations, and explore topics</p>
+                        </div>
+
+                        <div class="ai-chat-messages" id="aiChatMessages">
+                            <div class="ai-message system-message">
+                                <div class="message-avatar">🤖</div>
+                                <div class="message-content">
+                                    <p>Hello! I'm your AI News Assistant. I can help you:</p>
+                                    <ul>
+                                        <li>Explain complex news articles</li>
+                                        <li>Answer questions about current events</li>
+                                        <li>Provide context and background information</li>
+                                        <li>Suggest related topics to explore</li>
+                                    </ul>
+                                    <p>What would you like to know about today's news?</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="ai-chat-input-container">
+                            <div class="ai-chat-input-wrapper">
+                                <input type="text" id="aiChatInput" class="ai-chat-input"
+                                       placeholder="Ask me anything about the news..."
+                                       autocomplete="off">
+                                <button id="aiChatSendBtn" class="ai-chat-send-btn" disabled>
+                                    <span class="send-icon">📤</span>
+                                </button>
+                            </div>
+                            <div class="ai-chat-suggestions" id="aiChatSuggestions">
+                                <button class="suggestion-btn">What are the main stories today?</button>
+                                <button class="suggestion-btn">Explain the latest tech news</button>
+                                <button class="suggestion-btn">What's trending in business?</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Smart Categorization Tab -->
+                <div class="ai-tab-content" id="categorizationTab">
+                    <div class="smart-categorization-container">
+                        <div class="categorization-header">
+                            <h4>🎯 Smart Article Categorization</h4>
+                            <button id="runCategorizationBtn" class="btn btn-primary btn-sm">
+                                🔄 Analyze All Articles
+                            </button>
+                        </div>
+                        <div id="categorizationResults" class="categorization-results">
+                            <p class="text-secondary">Click "Analyze All Articles" to see AI-powered categorization</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Content Recommendations Tab -->
+                <div class="ai-tab-content" id="recommendationsTab">
+                    <div class="recommendations-container">
+                        <div class="recommendations-header">
+                            <h4>💡 Personalized Recommendations</h4>
+                            <button id="refreshRecommendationsBtn" class="btn btn-primary btn-sm">
+                                🔄 Refresh
+                            </button>
+                        </div>
+                        <div id="recommendationsResults" class="recommendations-results">
+                            <p class="text-secondary">Loading personalized recommendations...</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Smart Briefing Tab -->
+                <div class="ai-tab-content" id="briefingTab">
+                    <div class="briefing-container">
+                        <div class="briefing-header">
+                            <h4>📊 Smart Briefings</h4>
+                            <div class="briefing-controls">
+                                <button id="generateDailyBriefingBtn" class="btn btn-primary btn-sm">
+                                    📅 Daily Briefing
+                                </button>
+                                <button id="generateTopicDeepDiveBtn" class="btn btn-secondary btn-sm">
+                                    🔍 Topic Deep Dive
+                                </button>
+                            </div>
+                        </div>
+                        <div class="briefing-input-section" id="topicDeepDiveInput" style="display: none;">
+                            <input type="text" id="deepDiveTopic" class="form-input"
+                                   placeholder="Enter topic for deep dive analysis...">
+                            <button id="runDeepDiveBtn" class="btn btn-primary btn-sm">Analyze</button>
+                        </div>
+                        <div id="briefingResults" class="briefing-results">
+                            <p class="text-secondary">Generate a briefing to see AI-powered analysis</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Content Relationships Tab -->
+                <div class="ai-tab-content" id="relationshipsTab">
+                    <div class="relationships-container">
+                        <div class="relationships-header">
+                            <h4>🔗 Content Relationships</h4>
+                            <button id="analyzeRelationshipsBtn" class="btn btn-primary btn-sm">
+                                🔄 Analyze Relationships
+                            </button>
+                        </div>
+                        <div id="relationshipsResults" class="relationships-results">
+                            <p class="text-secondary">Click "Analyze Relationships" to see article connections</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
             <!-- News Container -->
             <section class="news-container">
                 <div class="news-header">
                     <h3>📰 Latest News</h3>
                     <div class="filter-controls">
+                        <button id="toggleAiFeaturesBtn" class="btn btn-secondary btn-sm">
+                            🤖 AI Features
+                        </button>
                         <span class="page-info" id="pageInfo">Page 1 of 1</span>
                     </div>
                 </div>
@@ -702,16 +916,25 @@
         // Sidebar toggle functionality
         function toggleSidebar() {
             const sidebar = document.getElementById('sidebar');
+            const mainContent = document.querySelector('.main-content');
             const toggleIcon = document.getElementById('sidebarToggleIcon');
 
             if (sidebar.classList.contains('collapsed')) {
                 sidebar.classList.remove('collapsed');
                 toggleIcon.textContent = '◀';
                 localStorage.setItem('sidebarCollapsed', 'false');
+                // Adjust main content width for expanded sidebar
+                if (mainContent) {
+                    mainContent.style.maxWidth = 'calc(100vw - 350px)';
+                }
             } else {
                 sidebar.classList.add('collapsed');
                 toggleIcon.textContent = '▶';
                 localStorage.setItem('sidebarCollapsed', 'true');
+                // Adjust main content width for collapsed sidebar
+                if (mainContent) {
+                    mainContent.style.maxWidth = 'calc(100vw - 60px)';
+                }
             }
         }
 
@@ -727,9 +950,14 @@
             const sidebarCollapsed = localStorage.getItem('sidebarCollapsed');
             if (sidebarCollapsed === 'true') {
                 const sidebar = document.getElementById('sidebar');
+                const mainContent = document.querySelector('.main-content');
                 const toggleIcon = document.getElementById('sidebarToggleIcon');
                 sidebar.classList.add('collapsed');
                 toggleIcon.textContent = '▶';
+                // Adjust main content width for collapsed sidebar on page load
+                if (mainContent) {
+                    mainContent.style.maxWidth = 'calc(100vw - 60px)';
+                }
             }
 
             // Update category filter event listener
