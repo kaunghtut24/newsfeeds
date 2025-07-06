@@ -1460,7 +1460,7 @@ class NewsFeedApp {
             item.className = 'source-item-insight';
 
             item.innerHTML = `
-                <span class="source-name">${source.source}</span>
+                <span class="source-name">${source.name}</span>
                 <span class="source-count">${source.article_count}</span>
             `;
 

@@ -239,6 +239,7 @@
             padding: var(--space-6);
             max-width: calc(100vw - 350px);
             overflow-x: hidden;
+            transition: max-width 0.3s ease;
         }
 
         .header {
@@ -915,16 +916,25 @@
         // Sidebar toggle functionality
         function toggleSidebar() {
             const sidebar = document.getElementById('sidebar');
+            const mainContent = document.querySelector('.main-content');
             const toggleIcon = document.getElementById('sidebarToggleIcon');
 
             if (sidebar.classList.contains('collapsed')) {
                 sidebar.classList.remove('collapsed');
                 toggleIcon.textContent = '◀';
                 localStorage.setItem('sidebarCollapsed', 'false');
+                // Adjust main content width for expanded sidebar
+                if (mainContent) {
+                    mainContent.style.maxWidth = 'calc(100vw - 350px)';
+                }
             } else {
                 sidebar.classList.add('collapsed');
                 toggleIcon.textContent = '▶';
                 localStorage.setItem('sidebarCollapsed', 'true');
+                // Adjust main content width for collapsed sidebar
+                if (mainContent) {
+                    mainContent.style.maxWidth = 'calc(100vw - 60px)';
+                }
             }
         }
 
@@ -940,9 +950,14 @@
             const sidebarCollapsed = localStorage.getItem('sidebarCollapsed');
             if (sidebarCollapsed === 'true') {
                 const sidebar = document.getElementById('sidebar');
+                const mainContent = document.querySelector('.main-content');
                 const toggleIcon = document.getElementById('sidebarToggleIcon');
                 sidebar.classList.add('collapsed');
                 toggleIcon.textContent = '▶';
+                // Adjust main content width for collapsed sidebar on page load
+                if (mainContent) {
+                    mainContent.style.maxWidth = 'calc(100vw - 60px)';
+                }
             }
 
             // Update category filter event listener

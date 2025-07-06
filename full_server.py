@@ -664,30 +664,101 @@ def get_trending_analysis():
         if 'content_enhancer' in globals():
             trending_analysis = content_enhancer.get_trending_analysis(articles)
         else:
-            # Basic trending analysis
+            # Enhanced trending analysis with stop word filtering
             from collections import Counter
             import re
+
+            # Comprehensive stop words list to filter out meaningless terms
+            stop_words = {
+                # Common articles, pronouns, conjunctions
+                'that', 'this', 'with', 'from', 'they', 'their', 'there', 'where', 'when',
+                'what', 'which', 'will', 'would', 'could', 'should', 'have', 'been',
+                'were', 'said', 'says', 'also', 'more', 'most', 'some', 'many', 'much',
+
+                # Prepositions and conjunctions
+                'about', 'after', 'before', 'during', 'through', 'between', 'among',
+                'into', 'onto', 'upon', 'over', 'under', 'above', 'below', 'across',
+                'around', 'behind', 'beside', 'beyond', 'inside', 'outside', 'within',
+                'including', 'without', 'against', 'towards', 'regarding', 'concerning',
+
+                # Common verbs and adverbs
+                'does', 'done', 'doing', 'make', 'made', 'making', 'take', 'taken', 'taking',
+                'give', 'given', 'giving', 'come', 'came', 'coming', 'goes', 'went', 'going',
+                'know', 'knew', 'known', 'knowing', 'think', 'thought', 'thinking',
+                'look', 'looked', 'looking', 'find', 'found', 'finding', 'work', 'worked', 'working',
+                'help', 'helped', 'helping', 'keep', 'kept', 'keeping', 'turn', 'turned', 'turning',
+                'show', 'showed', 'showing', 'play', 'played', 'playing', 'move', 'moved', 'moving',
+                'follow', 'followed', 'following', 'live', 'lived', 'living', 'believe', 'believed', 'believing',
+                'hold', 'held', 'holding', 'bring', 'brought', 'bringing', 'happen', 'happened', 'happening',
+                'write', 'wrote', 'written', 'writing', 'provide', 'provided', 'providing',
+                'allow', 'allowed', 'allowing', 'include', 'included', 'including',
+
+                # Common adjectives and determiners
+                'such', 'each', 'every', 'both', 'either', 'neither', 'another', 'other', 'others',
+                'same', 'different', 'various', 'several', 'certain', 'particular', 'specific',
+                'general', 'special', 'important', 'large', 'small', 'great', 'good', 'better', 'best',
+                'high', 'higher', 'highest', 'long', 'longer', 'longest', 'right', 'wrong',
+
+                # Time and quantity words
+                'time', 'times', 'year', 'years', 'month', 'months', 'week', 'weeks', 'day', 'days',
+                'hour', 'hours', 'minute', 'minutes', 'today', 'yesterday', 'tomorrow',
+                'first', 'second', 'third', 'last', 'next', 'previous', 'current', 'recent',
+                'number', 'numbers', 'part', 'parts', 'place', 'places', 'way', 'ways',
+
+                # Generic business/news terms that are too common
+                'according', 'report', 'reports', 'reported', 'reporting', 'article', 'articles',
+                'story', 'stories', 'information', 'details', 'sources', 'source',
+                'statement', 'statements', 'announcement', 'announcements'
+            }
 
             # Extract keywords from titles and summaries
             all_text = []
             for article in articles:
                 text = f"{article.get('title', '')} {article.get('summary', '')}"
-                # Simple keyword extraction
+                # Extract meaningful words (4+ characters, not stop words)
                 words = re.findall(r'\b[A-Za-z]{4,}\b', text.lower())
-                all_text.extend(words)
+                # Filter out stop words and additional patterns
+                meaningful_words = []
+                important_ing_words = {'business', 'marketing', 'trading', 'banking', 'programming', 'engineering'}
+
+                for word in words:
+                    if (word not in stop_words and
+                        len(word) >= 4 and
+                        word.isalpha() and  # Only alphabetic characters
+                        not word.startswith('http') and
+                        (not word.endswith('ing') or word in important_ing_words) and  # Filter -ing except important ones
+                        not word.endswith('ed')):  # Filter past tense verbs
+                        meaningful_words.append(word)
+                all_text.extend(meaningful_words)
 
             # Count word frequencies
             word_counts = Counter(all_text)
 
-            # Create trending topics
+            # Create trending topics with better filtering
             trending_topics = []
-            for word, count in word_counts.most_common(10):
-                if count >= 2:  # Must appear at least twice
+            for word, count in word_counts.most_common(20):
+                if count >= 3:  # Must appear at least 3 times for significance
                     trending_topics.append({
                         'keyword': word.title(),
                         'count': count,
                         'trend_score': count / len(articles),
                         'article_count': count
+                    })
+
+            # Calculate trending sources based on article counts
+            source_counts = Counter()
+            for article in articles:
+                source = article.get('source', 'Unknown')
+                source_counts[source] += 1
+
+            trending_sources = []
+            for source, count in source_counts.most_common(8):  # Top 8 sources
+                if count >= 1:  # At least 1 article
+                    trending_sources.append({
+                        'name': source,
+                        'article_count': count,
+                        'percentage': (count / len(articles)) * 100,
+                        'status': 'active'
                     })
 
             # Basic sentiment overview
@@ -699,7 +770,7 @@ def get_trending_analysis():
 
             trending_analysis = {
                 'trending_topics': trending_topics,
-                'trending_sources': [],
+                'trending_sources': trending_sources,
                 'sentiment_trends': sentiment_counts
             }
 
