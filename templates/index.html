@@ -36,12 +36,54 @@
 
         .sidebar-header {
             display: flex;
-            align-items: center;
+            align-items: flex-start;
             justify-content: space-between;
             margin-bottom: var(--space-8);
             padding-bottom: var(--space-4);
             border-bottom: 1px solid var(--color-gray-700);
             position: relative;
+        }
+
+        .sidebar-title-section {
+            flex: 1;
+        }
+
+        .sidebar-controls {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .user-info {
+            margin-top: 8px;
+            font-size: 12px;
+        }
+
+        .user-welcome {
+            color: var(--color-gray-300);
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        .user-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .user-link {
+            color: var(--color-blue-300);
+            text-decoration: none;
+            font-size: 11px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            background-color: rgba(255,255,255,0.1);
+            transition: background-color 0.2s ease;
+        }
+
+        .user-link:hover {
+            background-color: rgba(255,255,255,0.2);
+            text-decoration: none;
         }
 
         .sidebar-toggle {
@@ -407,13 +449,26 @@
         <!-- Sidebar -->
         <aside class="sidebar" id="sidebar">
             <div class="sidebar-header">
-                <h2 class="sidebar-title">⚙️ Settings</h2>
-                <button id="themeToggle" class="theme-toggle" title="Toggle theme">
-                    <span id="themeIcon">🌙</span>
-                </button>
-                <button id="sidebarToggle" class="sidebar-toggle" title="Toggle sidebar">
-                    <span id="sidebarToggleIcon">◀</span>
-                </button>
+                <div class="sidebar-title-section">
+                    <h2 class="sidebar-title">📰 News Feed Pro</h2>
+                    <div id="userInfo" class="user-info">
+                        <span id="userWelcome" class="user-welcome">Welcome, Guest</span>
+                        <div class="user-actions">
+                            <a href="/dashboard" id="dashboardLink" class="user-link" style="display: none;">Dashboard</a>
+                            <a href="/admin" id="adminLink" class="user-link" style="display: none;">Admin</a>
+                            <a href="/login" id="loginLink" class="user-link">Login</a>
+                            <a href="/api/auth/logout" id="logoutLink" class="user-link" style="display: none;">Logout</a>
+                        </div>
+                    </div>
+                </div>
+                <div class="sidebar-controls">
+                    <button id="themeToggle" class="theme-toggle" title="Toggle theme">
+                        <span id="themeIcon">🌙</span>
+                    </button>
+                    <button id="sidebarToggle" class="sidebar-toggle" title="Toggle sidebar">
+                        <span id="sidebarToggleIcon">◀</span>
+                    </button>
+                </div>
             </div>
 
             <!-- News Sources Section -->
@@ -969,7 +1024,64 @@
                     }
                 });
             }
+
+            // Initialize user authentication status
+            initUserAuth();
         });
+
+        // User authentication functions
+        async function initUserAuth() {
+            try {
+                const sessionToken = localStorage.getItem('session_token');
+                if (!sessionToken) {
+                    showGuestMode();
+                    return;
+                }
+
+                // Check if session is still valid
+                const response = await fetch('/api/user/profile', {
+                    headers: {
+                        'Authorization': `Bearer ${sessionToken}`
+                    }
+                });
+
+                if (response.ok) {
+                    const result = await response.json();
+                    if (result.success) {
+                        showUserMode(result.user);
+                    } else {
+                        showGuestMode();
+                    }
+                } else {
+                    showGuestMode();
+                }
+            } catch (error) {
+                console.error('Auth check error:', error);
+                showGuestMode();
+            }
+        }
+
+        function showUserMode(user) {
+            document.getElementById('userWelcome').textContent = `Welcome, ${user.username}`;
+            document.getElementById('loginLink').style.display = 'none';
+            document.getElementById('logoutLink').style.display = 'inline-block';
+
+            if (user.role === 'admin') {
+                document.getElementById('adminLink').style.display = 'inline-block';
+                document.getElementById('dashboardLink').style.display = 'none';
+            } else {
+                document.getElementById('dashboardLink').style.display = 'inline-block';
+                document.getElementById('adminLink').style.display = 'none';
+            }
+        }
+
+        function showGuestMode() {
+            document.getElementById('userWelcome').textContent = 'Welcome, Guest';
+            document.getElementById('loginLink').style.display = 'inline-block';
+            document.getElementById('logoutLink').style.display = 'none';
+            document.getElementById('dashboardLink').style.display = 'none';
+            document.getElementById('adminLink').style.display = 'none';
+        }
     </script>
 </body>
 </html>

@@ -41,8 +41,14 @@ from core.ai_features.trend_analyzer import TrendAnalyzer
 from core.ai_features.ai_news_assistant import AINewsAssistant
 from core.ai_features.smart_briefing_generator import SmartBriefingGenerator
 
+# Import user management system
+from core.user_management import UserManager, User, UserRole, UserStatus
+from core.auth import init_auth, get_current_user, login_required, admin_required, user_owns_resource
+from core.rbac import AccessControl, Permission, get_permission_checker
+
 # Initialize Flask app
 app = Flask(__name__)
+app.secret_key = 'newsfeeds_secret_key_2024'  # In production, use environment variable
 
 # Load configuration
 def load_config():
@@ -73,6 +79,10 @@ news_fetcher = NewsFetcher(news_sources)
 data_manager = DataManager(base_path=data_dir)
 categorizer = Categorizer()
 report_generator = ReportGenerator()
+
+# Initialize user management system
+user_manager = UserManager(data_dir)
+auth_manager = init_auth(user_manager)
 
 # Initialize LLM summarizer first
 try:
@@ -123,10 +133,35 @@ processing_stats = {
 
 @app.route('/')
 def index():
-    """Main page"""
+    """Main page - redirect to login if not authenticated"""
+    current_user = get_current_user()
+
+    if current_user:
+        # User is logged in, redirect to appropriate dashboard
+        if current_user.is_admin():
+            from flask import redirect, url_for
+            return redirect(url_for('admin_dashboard'))
+        else:
+            from flask import redirect, url_for
+            return redirect(url_for('user_dashboard'))
+
+    # User not logged in, redirect to login page
+    from flask import redirect, url_for
+    return redirect(url_for('login'))
+
+@app.route('/app')
+@login_required
+def main_app():
+    """Main news application (requires authentication)"""
+    return render_template('index.html')
+
+@app.route('/public')
+def public_news():
+    """Public news feed (no authentication required) - for demo purposes"""
     return render_template('index.html')
 
 @app.route('/report')
+@login_required
 def report():
     """Generate and serve HTML report"""
     try:
@@ -186,6 +221,7 @@ def health_check():
         }), 500
 
 @app.route('/api/news')
+@login_required
 def get_news():
     """API endpoint to get news articles"""
     try:
@@ -420,6 +456,7 @@ def toggle_source():
         })
 
 @app.route('/api/fetch-news', methods=['POST'])
+@login_required
 def fetch_news():
     """API endpoint to fetch and summarize news with LLM"""
     global is_processing, processing_status, processing_stats
@@ -648,6 +685,7 @@ def get_saved_searches():
     return jsonify([])
 
 @app.route('/api/trending-analysis')
+@login_required
 def get_trending_analysis():
     """API endpoint for trending analysis with real data"""
     try:
@@ -786,6 +824,7 @@ def get_trending_analysis():
         })
 
 @app.route('/api/content-insights')
+@login_required
 def get_content_insights():
     """API endpoint for content insights with comprehensive analysis"""
     try:
@@ -1000,6 +1039,7 @@ def health_check_providers():
         })
 
 @app.route('/api/llm-providers')
+@login_required
 def get_llm_providers():
     """API endpoint for LLM providers"""
     try:
@@ -1149,6 +1189,7 @@ def search_news():
         })
 
 @app.route('/api/ai-features/smart-categorization', methods=['POST'])
+@login_required
 def smart_categorize_article():
     """API endpoint for smart categorization of a single article"""
     try:
@@ -1180,6 +1221,7 @@ def smart_categorize_article():
         })
 
 @app.route('/api/ai-features/sentiment-analysis', methods=['POST'])
+@login_required
 def analyze_article_sentiment():
     """API endpoint for sentiment analysis of a single article"""
     try:
@@ -1211,6 +1253,7 @@ def analyze_article_sentiment():
         })
 
 @app.route('/api/ai-features/recommendations')
+@login_required
 def get_content_recommendations():
     """API endpoint for content recommendations"""
     try:
@@ -1252,6 +1295,7 @@ def get_content_recommendations():
         })
 
 @app.route('/api/ai-features/semantic-search', methods=['POST'])
+@login_required
 def semantic_search_articles():
     """API endpoint for semantic search"""
     try:
@@ -1301,6 +1345,7 @@ def semantic_search_articles():
         })
 
 @app.route('/api/ai-features/search-suggestions')
+@login_required
 def get_search_suggestions():
     """API endpoint for search suggestions"""
     try:
@@ -1334,6 +1379,7 @@ def get_search_suggestions():
         })
 
 @app.route('/api/ai-features/status')
+@login_required
 def get_ai_features_status():
     """API endpoint for AI features status"""
     try:
@@ -1371,6 +1417,7 @@ def get_ai_features_status():
 # Phase 2 AI Features API Endpoints
 
 @app.route('/api/ai-features/relationship-analysis', methods=['POST'])
+@login_required
 def analyze_content_relationships():
     """API endpoint for content relationship analysis"""
     try:
@@ -1409,6 +1456,7 @@ def analyze_content_relationships():
         })
 
 @app.route('/api/ai-features/trend-analysis', methods=['POST'])
+@login_required
 def analyze_trends():
     """API endpoint for trend analysis"""
     try:
@@ -1451,6 +1499,7 @@ def analyze_trends():
         })
 
 @app.route('/api/ai-features/ai-chat', methods=['POST'])
+@login_required
 def ai_chat():
     """API endpoint for AI assistant chat using real LLM"""
     try:
@@ -1582,6 +1631,7 @@ def generate_chat_follow_ups(user_message, ai_response):
     return follow_ups[:3]  # Return top 3 suggestions
 
 @app.route('/api/ai-features/explain-article', methods=['POST'])
+@login_required
 def explain_article():
     """API endpoint for article explanation"""
     try:
@@ -1615,6 +1665,7 @@ def explain_article():
         })
 
 @app.route('/api/ai-features/daily-briefing')
+@login_required
 def generate_daily_briefing():
     """API endpoint for daily briefing generation"""
     try:
@@ -1653,6 +1704,7 @@ def generate_daily_briefing():
         })
 
 @app.route('/api/ai-features/topic-deep-dive')
+@login_required
 def generate_topic_deep_dive():
     """API endpoint for topic deep dive analysis"""
     try:
@@ -1690,6 +1742,371 @@ def generate_topic_deep_dive():
             'success': False,
             'error': f'Topic deep dive failed: {str(e)}'
         })
+
+# ============================================================================
+# AUTHENTICATION ROUTES
+# ============================================================================
+
+@app.route('/login')
+def login():
+    """Login page"""
+    return render_template('auth/login.html')
+
+@app.route('/register')
+def register():
+    """Registration page"""
+    return render_template('auth/register.html')
+
+@app.route('/api/auth/login', methods=['POST'])
+def api_login():
+    """User login API"""
+    try:
+        data = request.get_json()
+        username = data.get('username')
+        password = data.get('password')
+
+        if not username or not password:
+            return jsonify({'success': False, 'error': 'Username and password required'})
+
+        result = auth_manager.login(username, password)
+
+        if result['success']:
+            # Store session token in Flask session
+            from flask import session
+            session['session_token'] = result['session_token']
+            session['user_id'] = result['user']['user_id']
+            session['username'] = result['user']['username']
+            session['role'] = result['user']['role']
+
+        return jsonify(result)
+
+    except Exception as e:
+        logger.error(f"Login error: {e}")
+        return jsonify({'success': False, 'error': 'Login failed'})
+
+@app.route('/api/auth/register', methods=['POST'])
+def api_register():
+    """User registration API"""
+    try:
+        data = request.get_json()
+        username = data.get('username')
+        email = data.get('email')
+        password = data.get('password')
+
+        if not username or not email or not password:
+            return jsonify({'success': False, 'error': 'All fields are required'})
+
+        result = auth_manager.register(username, email, password)
+        return jsonify(result)
+
+    except Exception as e:
+        logger.error(f"Registration error: {e}")
+        return jsonify({'success': False, 'error': 'Registration failed'})
+
+@app.route('/api/auth/logout', methods=['GET', 'POST'])
+def api_logout():
+    """User logout API"""
+    try:
+        from flask import session, redirect, url_for
+
+        # Get session token
+        session_token = session.get('session_token')
+
+        if session_token:
+            auth_manager.logout(session_token)
+
+        # Clear Flask session
+        session.clear()
+
+        # Redirect to login page
+        return redirect(url_for('login'))
+
+    except Exception as e:
+        logger.error(f"Logout error: {e}")
+        return jsonify({'success': False, 'error': 'Logout failed'})
+
+# ============================================================================
+# ADMIN DASHBOARD ROUTES
+# ============================================================================
+
+@app.route('/admin')
+@admin_required
+def admin_dashboard():
+    """Admin dashboard"""
+    return render_template('admin/dashboard.html')
+
+@app.route('/api/admin/stats')
+@admin_required
+def admin_stats():
+    """Get admin statistics"""
+    try:
+        stats = user_manager.get_user_stats()
+        return jsonify({'success': True, 'stats': stats})
+    except Exception as e:
+        logger.error(f"Admin stats error: {e}")
+        return jsonify({'success': False, 'error': 'Failed to load statistics'})
+
+@app.route('/api/admin/users')
+@admin_required
+def admin_users():
+    """Get all users for admin"""
+    try:
+        users = user_manager.get_all_users()
+        users_data = [user.to_dict() for user in users]
+        # Remove password hashes from response
+        for user_data in users_data:
+            user_data.pop('password_hash', None)
+
+        return jsonify({'success': True, 'users': users_data})
+    except Exception as e:
+        logger.error(f"Admin users error: {e}")
+        return jsonify({'success': False, 'error': 'Failed to load users'})
+
+@app.route('/api/admin/pending-users')
+@admin_required
+def admin_pending_users():
+    """Get pending users for admin approval"""
+    try:
+        users = user_manager.get_pending_users()
+        users_data = [user.to_dict() for user in users]
+        # Remove password hashes from response
+        for user_data in users_data:
+            user_data.pop('password_hash', None)
+
+        return jsonify({'success': True, 'users': users_data})
+    except Exception as e:
+        logger.error(f"Admin pending users error: {e}")
+        return jsonify({'success': False, 'error': 'Failed to load pending users'})
+
+@app.route('/api/admin/users/<user_id>/approve', methods=['POST'])
+@admin_required
+def admin_approve_user(user_id):
+    """Approve a pending user"""
+    try:
+        current_user = get_current_user()
+        result = user_manager.approve_user(user_id, current_user.user_id)
+        return jsonify(result)
+    except Exception as e:
+        logger.error(f"Admin approve user error: {e}")
+        return jsonify({'success': False, 'error': 'Failed to approve user'})
+
+@app.route('/api/admin/users/<user_id>/reject', methods=['POST'])
+@admin_required
+def admin_reject_user(user_id):
+    """Reject a pending user"""
+    try:
+        current_user = get_current_user()
+        result = user_manager.reject_user(user_id, current_user.user_id)
+        return jsonify(result)
+    except Exception as e:
+        logger.error(f"Admin reject user error: {e}")
+        return jsonify({'success': False, 'error': 'Failed to reject user'})
+
+@app.route('/api/admin/users/<user_id>/activate', methods=['POST'])
+@admin_required
+def admin_activate_user(user_id):
+    """Activate a user"""
+    try:
+        current_user = get_current_user()
+        result = user_manager.activate_user(user_id, current_user.user_id)
+        return jsonify(result)
+    except Exception as e:
+        logger.error(f"Admin activate user error: {e}")
+        return jsonify({'success': False, 'error': 'Failed to activate user'})
+
+@app.route('/api/admin/users/<user_id>/deactivate', methods=['POST'])
+@admin_required
+def admin_deactivate_user(user_id):
+    """Deactivate a user"""
+    try:
+        current_user = get_current_user()
+        result = user_manager.deactivate_user(user_id, current_user.user_id)
+        return jsonify(result)
+    except Exception as e:
+        logger.error(f"Admin deactivate user error: {e}")
+        return jsonify({'success': False, 'error': 'Failed to deactivate user'})
+
+@app.route('/api/admin/users/<user_id>', methods=['DELETE'])
+@admin_required
+def admin_delete_user(user_id):
+    """Delete a user"""
+    try:
+        current_user = get_current_user()
+        result = user_manager.delete_user(user_id, current_user.user_id)
+        return jsonify(result)
+    except Exception as e:
+        logger.error(f"Admin delete user error: {e}")
+        return jsonify({'success': False, 'error': 'Failed to delete user'})
+
+@app.route('/api/admin/audit-log')
+@admin_required
+def admin_audit_log():
+    """Get audit log"""
+    try:
+        logs = user_manager.get_audit_log(limit=100)
+        return jsonify({'success': True, 'logs': logs})
+    except Exception as e:
+        logger.error(f"Admin audit log error: {e}")
+        return jsonify({'success': False, 'error': 'Failed to load audit log'})
+
+@app.route('/api/admin/recent-activity')
+@admin_required
+def admin_recent_activity():
+    """Get recent activity for dashboard"""
+    try:
+        logs = user_manager.get_audit_log(limit=10)
+        return jsonify({'success': True, 'activities': logs})
+    except Exception as e:
+        logger.error(f"Admin recent activity error: {e}")
+        return jsonify({'success': False, 'error': 'Failed to load recent activity'})
+
+# ============================================================================
+# USER DASHBOARD ROUTES
+# ============================================================================
+
+@app.route('/dashboard')
+@login_required
+def user_dashboard():
+    """User dashboard"""
+    return render_template('user/dashboard.html')
+
+@app.route('/api/user/profile')
+@login_required
+def user_profile():
+    """Get current user profile"""
+    try:
+        current_user = get_current_user()
+        user_data = current_user.to_dict()
+        user_data.pop('password_hash', None)  # Remove password hash
+
+        return jsonify({'success': True, 'user': user_data})
+    except Exception as e:
+        logger.error(f"User profile error: {e}")
+        return jsonify({'success': False, 'error': 'Failed to load profile'})
+
+@app.route('/api/user/sources')
+@login_required
+def user_sources():
+    """Get user's news sources"""
+    try:
+        current_user = get_current_user()
+        sources = user_manager.get_user_sources(current_user.user_id)
+        sources_data = [source.to_dict() for source in sources]
+
+        return jsonify({'success': True, 'sources': sources_data})
+    except Exception as e:
+        logger.error(f"User sources error: {e}")
+        return jsonify({'success': False, 'error': 'Failed to load sources'})
+
+@app.route('/api/user/sources', methods=['POST'])
+@login_required
+def add_user_source():
+    """Add a new news source for user"""
+    try:
+        current_user = get_current_user()
+        data = request.get_json()
+
+        name = data.get('name')
+        url = data.get('url')
+        category = data.get('category', 'general')
+
+        if not name or not url:
+            return jsonify({'success': False, 'error': 'Name and URL are required'})
+
+        result = user_manager.add_user_source(current_user.user_id, name, url, category)
+        return jsonify(result)
+
+    except Exception as e:
+        logger.error(f"Add user source error: {e}")
+        return jsonify({'success': False, 'error': 'Failed to add source'})
+
+@app.route('/api/user/sources/<source_id>')
+@login_required
+def get_user_source(source_id):
+    """Get a specific user source"""
+    try:
+        current_user = get_current_user()
+        source = user_manager.get_user_source_by_id(current_user.user_id, source_id)
+
+        if not source:
+            return jsonify({'success': False, 'error': 'Source not found'})
+
+        return jsonify({'success': True, 'source': source.to_dict()})
+
+    except Exception as e:
+        logger.error(f"Get user source error: {e}")
+        return jsonify({'success': False, 'error': 'Failed to load source'})
+
+@app.route('/api/user/sources/<source_id>', methods=['PUT'])
+@login_required
+def update_user_source(source_id):
+    """Update a user's news source"""
+    try:
+        current_user = get_current_user()
+        data = request.get_json()
+
+        name = data.get('name')
+        url = data.get('url')
+        category = data.get('category')
+        enabled = data.get('enabled')
+
+        result = user_manager.update_user_source(
+            current_user.user_id, source_id, name, url, category, enabled
+        )
+        return jsonify(result)
+
+    except Exception as e:
+        logger.error(f"Update user source error: {e}")
+        return jsonify({'success': False, 'error': 'Failed to update source'})
+
+@app.route('/api/user/sources/<source_id>', methods=['DELETE'])
+@login_required
+def delete_user_source(source_id):
+    """Delete a user's news source"""
+    try:
+        current_user = get_current_user()
+        result = user_manager.delete_user_source(current_user.user_id, source_id)
+        return jsonify(result)
+
+    except Exception as e:
+        logger.error(f"Delete user source error: {e}")
+        return jsonify({'success': False, 'error': 'Failed to delete source'})
+
+@app.route('/api/user/news-feed')
+@login_required
+def user_news_feed():
+    """Get user's personalized news feed"""
+    try:
+        current_user = get_current_user()
+
+        # Get user's sources
+        user_sources = user_manager.get_user_sources(current_user.user_id)
+
+        if not user_sources:
+            return jsonify({'success': True, 'articles': []})
+
+        # Create a temporary news fetcher with user's sources
+        user_news_sources = {}
+        for source in user_sources:
+            if source.enabled:
+                user_news_sources[source.name] = source.url
+
+        if not user_news_sources:
+            return jsonify({'success': True, 'articles': []})
+
+        # Fetch news from user's sources
+        user_fetcher = NewsFetcher(user_news_sources)
+        articles = user_fetcher.fetch_all_news()
+
+        # Add source information to articles
+        for article in articles:
+            article['user_id'] = current_user.user_id
+
+        return jsonify({'success': True, 'articles': articles})
+
+    except Exception as e:
+        logger.error(f"User news feed error: {e}")
+        return jsonify({'success': False, 'error': 'Failed to load news feed'})
 
 def main():
     print("🚀 News Feed Application - Full AI-Powered Server")
