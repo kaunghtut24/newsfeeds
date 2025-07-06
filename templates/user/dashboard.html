@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Dashboard - News Feed Pro</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <style>
+        .user-dashboard {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f8f9fa;
+            min-height: 100vh;
+        }
+        
+        .dashboard-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .welcome-section h1 {
+            margin: 0 0 10px 0;
+            font-size: 28px;
+        }
+        
+        .welcome-section p {
+            margin: 0;
+            opacity: 0.9;
+        }
+        
+        .header-actions {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            transition: all 0.2s ease;
+        }
+        
+        .btn-primary {
+            background-color: rgba(255,255,255,0.2);
+            color: white;
+            border: 1px solid rgba(255,255,255,0.3);
+        }
+        
+        .btn-primary:hover {
+            background-color: rgba(255,255,255,0.3);
+            transform: translateY(-1px);
+        }
+        
+        .btn-secondary {
+            background-color: #6c757d;
+            color: white;
+        }
+        
+        .btn-success {
+            background-color: #28a745;
+            color: white;
+        }
+        
+        .btn-danger {
+            background-color: #dc3545;
+            color: white;
+        }
+        
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+        
+        .dashboard-card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .card-header {
+            padding: 20px 25px;
+            border-bottom: 1px solid #e1e5e9;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .card-title {
+            margin: 0;
+            color: #333;
+            font-size: 18px;
+        }
+        
+        .card-content {
+            padding: 25px;
+        }
+        
+        .sources-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        
+        .source-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 0;
+            border-bottom: 1px solid #e1e5e9;
+        }
+        
+        .source-item:last-child {
+            border-bottom: none;
+        }
+        
+        .source-info {
+            flex: 1;
+        }
+        
+        .source-name {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 5px;
+        }
+        
+        .source-url {
+            font-size: 12px;
+            color: #666;
+            word-break: break-all;
+        }
+        
+        .source-category {
+            display: inline-block;
+            background-color: #e9ecef;
+            color: #495057;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            margin-top: 5px;
+        }
+        
+        .source-actions {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+        
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 15px;
+            opacity: 0.5;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .stat-card {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        
+        .stat-number {
+            font-size: 24px;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+        
+        .stat-label {
+            color: #666;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+        }
+        
+        .modal-content {
+            background-color: white;
+            margin: 5% auto;
+            padding: 0;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+        }
+        
+        .modal-header {
+            padding: 20px 25px;
+            border-bottom: 1px solid #e1e5e9;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .modal-title {
+            margin: 0;
+            color: #333;
+        }
+        
+        .close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #666;
+        }
+        
+        .modal-body {
+            padding: 25px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 500;
+        }
+        
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s ease;
+        }
+        
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .alert {
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+        
+        .alert-success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .alert-error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        @media (max-width: 768px) {
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .dashboard-header {
+                flex-direction: column;
+                text-align: center;
+                gap: 20px;
+            }
+            
+            .header-actions {
+                flex-direction: column;
+                width: 100%;
+            }
+            
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="user-dashboard">
+        <!-- Header -->
+        <div class="dashboard-header">
+            <div class="welcome-section">
+                <h1>Welcome back, <span id="userName">User</span>!</h1>
+                <p>Manage your personal news sources and stay informed</p>
+            </div>
+            <div class="header-actions">
+                <a href="/" class="btn btn-primary">🏠 Main App</a>
+                <a href="/api/auth/logout" class="btn btn-primary">Logout</a>
+            </div>
+        </div>
+        
+        <!-- Alert Container -->
+        <div id="alertContainer"></div>
+        
+        <!-- Dashboard Grid -->
+        <div class="dashboard-grid">
+            <!-- My News Sources -->
+            <div class="dashboard-card">
+                <div class="card-header">
+                    <h2 class="card-title">📰 My News Sources</h2>
+                    <button class="btn btn-success btn-sm" onclick="userDashboard.showAddSourceModal()">
+                        + Add Source
+                    </button>
+                </div>
+                <div class="card-content">
+                    <div id="sourcesList">
+                        <div class="loading">
+                            <div class="spinner"></div>
+                            Loading your news sources...
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Account Info -->
+            <div class="dashboard-card">
+                <div class="card-header">
+                    <h2 class="card-title">👤 Account Information</h2>
+                </div>
+                <div class="card-content">
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-number" id="sourcesCount">-</div>
+                            <div class="stat-label">News Sources</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number" id="accountStatus">-</div>
+                            <div class="stat-label">Account Status</div>
+                        </div>
+                    </div>
+                    
+                    <div style="margin-top: 20px;">
+                        <div style="margin-bottom: 10px;">
+                            <strong>Email:</strong> <span id="userEmail">-</span>
+                        </div>
+                        <div style="margin-bottom: 10px;">
+                            <strong>Member since:</strong> <span id="memberSince">-</span>
+                        </div>
+                        <div>
+                            <strong>Last login:</strong> <span id="lastLogin">-</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Recent News -->
+        <div class="dashboard-card">
+            <div class="card-header">
+                <h2 class="card-title">📊 My News Feed</h2>
+                <button class="btn btn-primary btn-sm" onclick="userDashboard.refreshNewsFeed()">
+                    🔄 Refresh
+                </button>
+            </div>
+            <div class="card-content">
+                <div id="newsFeed">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        Loading your personalized news feed...
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Add Source Modal -->
+    <div id="addSourceModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Add News Source</h3>
+                <button class="close" onclick="userDashboard.hideAddSourceModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="addSourceForm">
+                    <div class="form-group">
+                        <label for="sourceName">Source Name</label>
+                        <input type="text" id="sourceName" name="name" required 
+                               placeholder="e.g., TechCrunch">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="sourceUrl">RSS Feed URL</label>
+                        <input type="url" id="sourceUrl" name="url" required 
+                               placeholder="https://example.com/rss">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="sourceCategory">Category</label>
+                        <select id="sourceCategory" name="category">
+                            <option value="general">General</option>
+                            <option value="technology">Technology</option>
+                            <option value="business">Business</option>
+                            <option value="politics">Politics</option>
+                            <option value="sports">Sports</option>
+                            <option value="entertainment">Entertainment</option>
+                            <option value="science">Science</option>
+                            <option value="health">Health</option>
+                        </select>
+                    </div>
+                    
+                    <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                        <button type="button" class="btn btn-secondary" 
+                                onclick="userDashboard.hideAddSourceModal()">Cancel</button>
+                        <button type="submit" class="btn btn-success">Add Source</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Edit Source Modal -->
+    <div id="editSourceModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Edit News Source</h3>
+                <button class="close" onclick="userDashboard.hideEditSourceModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="editSourceForm">
+                    <input type="hidden" id="editSourceId" name="sourceId">
+                    
+                    <div class="form-group">
+                        <label for="editSourceName">Source Name</label>
+                        <input type="text" id="editSourceName" name="name" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="editSourceUrl">RSS Feed URL</label>
+                        <input type="url" id="editSourceUrl" name="url" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="editSourceCategory">Category</label>
+                        <select id="editSourceCategory" name="category">
+                            <option value="general">General</option>
+                            <option value="technology">Technology</option>
+                            <option value="business">Business</option>
+                            <option value="politics">Politics</option>
+                            <option value="sports">Sports</option>
+                            <option value="entertainment">Entertainment</option>
+                            <option value="science">Science</option>
+                            <option value="health">Health</option>
+                        </select>
+                    </div>
+                    
+                    <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                        <button type="button" class="btn btn-secondary" 
+                                onclick="userDashboard.hideEditSourceModal()">Cancel</button>
+                        <button type="submit" class="btn btn-success">Update Source</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/user-dashboard.js') }}"></script>
+</body>
+</html>
